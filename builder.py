@@ -11,7 +11,7 @@ N_MEDIAN_COMB = N_MEDIAN
 N_MEDIAN_RAMP = N_MEDIAN
 
 N_SHIFT = 1.5
-DN_TRANS = 2
+DN_TRANS = 1
 DN_RAMP = 1
 
 class RoadAsset():
@@ -220,9 +220,23 @@ def generate_all(max_lane, max_code=8, setting={}):
     # create ramps
     ramp = []
     pairs = []
-    for i in range(max_lane):
+    for i in range(2, max_lane):
         p_cur = [p for p in product(base[i], comp[i]) \
                      if (p[0].x0() == p[1].x0() or p[0].x1() == p[1].x1())]
+        p_cur += [(p[1], p[0]) for p in p_cur]
+        pairs.extend(p_cur)
+        
+    for i in range(max_lane - 1):
+        p_cur = [p for p in product(base[i], comp[i + 1]) \
+                     if (p[0].x0() == p[1].x0()) #or p[0].x1() == p[1].x1()) \
+                     and (p[1].x1() - p[0].x1() + p[1].x0() - p[0].x0() <= SW.LANE + SW.MEDIAN) \
+                ]
+        p_cur += [(p[1], p[0]) for p in p_cur]
+        pairs.extend(p_cur)
+        
+    for i in range(3, max_lane):
+        p_cur = [p for p in product(comp[i], comp[i]) \
+                     if (p[0].x0() == p[1].x0() and p[0].x1() == p[1].x1() and p[1] != p[0])]
         p_cur += [(p[1], p[0]) for p in p_cur]
         pairs.extend(p_cur)
         
@@ -245,7 +259,7 @@ def generate_all(max_lane, max_code=8, setting={}):
         base[5].append(special_6r9)
             
     
-    assets['comp'] = flatten(comp)
+    assets['comp'] = flatten(comp[2:])
     assets['shift'] = shift   
     assets['trans'] = trans
     assets['ramp'] = ramp

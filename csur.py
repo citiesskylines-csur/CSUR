@@ -1,4 +1,4 @@
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
 
 DPI = 150
 
@@ -17,7 +17,7 @@ def offset_x(s):
         return LANEWIDTH * (int(s) - 1.5)
 
 def offset_number(x):
-    if (x % LANEWIDTH) / LANEWIDTH == 0.5:
+    if abs((x % LANEWIDTH) / LANEWIDTH - 0.5) < 1e-4:
         return "%d" % (x / LANEWIDTH + 1.5)
     elif x % LANEWIDTH == 0:
         return "%dP" % (x / LANEWIDTH + 1)
@@ -46,7 +46,7 @@ class Segment():
     BARRIER = 6
     
     # width of each building unit
-    widths = [0, LANEWIDTH, LANEWIDTH/2, 2.75, LANEWIDTH, 3.0, LANEWIDTH/4]
+    widths = [0, LANEWIDTH, LANEWIDTH/2, 3.05, 0.5, 2.75, LANEWIDTH/4]
     # colors of each building unit
     colors = ["1", 
               "0.3", 
@@ -55,7 +55,7 @@ class Segment():
               [0.3, 0.77, 0.25], 
               "0.7",
               "0.7"]
-    
+    '''
     # static helper functions
     def plot_polygon(ax, xs, dx, **kwargs):
         points = [[xs[0], 0], [xs[1], Segment.LENGTH], [xs[1] + dx[1], Segment.LENGTH], [xs[0] + dx[0], 0]]
@@ -65,7 +65,7 @@ class Segment():
         return ax.plot([xs[0] + (xs[1] - xs[0]) * line_part[0], xs[0] + (xs[1] - xs[0]) * line_part[1]],
                        [Segment.LENGTH * line_part[0], Segment.LENGTH * line_part[1]],
                        color="1", ls='--', dashes=(10, 8))
-    
+    '''
     def get_lane_blocks(config, first_lane):
         p1 = first_lane
         lanes = []
@@ -122,7 +122,7 @@ class Segment():
     
     def __repr__(self):
         return self.__str__()
-        
+    '''    
     def draw(self, ax=None):
         if not ax:
             plt.figure(dpi=DPI)
@@ -142,7 +142,7 @@ class Segment():
                 Segment.dashed_line(ax, [self.x_start[i], self.x_end[i]], line_part)
         if not ax:
             plt.show()
-
+    '''
 class StandardWidth:
     LANE = Segment.widths[Segment.LANE]
     MEDIAN = Segment.widths[Segment.MEDIAN]
@@ -205,7 +205,7 @@ class BaseRoad(Segment):
 
 
 class TwoWay(Segment):
-    def __init__(self, base_road):
+    def __init__(self, base_road, half=False):
         # We don't want maek two-way shift segments 
         if isinstance(base_road, Shift):
             raise ValueError("Shift segments are one-way only")
@@ -216,7 +216,7 @@ class TwoWay(Segment):
         if d_start[0] != Segment.MEDIAN:
             d_start.pop(0)
             d_end.pop(0)
-            n_median = base_road.x_start[1] // Segment.widths[Segment.MEDIAN]
+            n_median = int(base_road.x_start[1] // Segment.widths[Segment.MEDIAN])
             d_start = [Segment.MEDIAN] * n_median + d_start
             d_end = [Segment.MEDIAN] * n_median + d_end
             
@@ -226,9 +226,8 @@ class TwoWay(Segment):
         dx_left = [-base_road.x_start[-1], -base_road.x_end[-1]]
         
         self.base_type = str(base_road).split(':')[0]
-        
         super(TwoWay, self).__init__(d_start, d_end, 
-                                     x_left=dx_left, first_lane = len(base_road.start))
+                                     x_left=dx_left, first_lane = len(d_start) // 2)
         
         
     def __str__(self):
@@ -263,20 +262,21 @@ class Access(Segment):
             return "CSUR-A:" + str(names[0][0]) + ">"+ str(names[1][1])    
 
 class CSURFactory():
-    roadside = {'g': [Segment.CURB, Segment.BIKE, Segment.SIDEWALK],
+    roadside = {'g': [Segment.MEDIAN, Segment.BIKE, Segment.CURB],
                 'e': [Segment.BARRIER]
                }
+    road_in = {'g': Segment.CURB, 'e': Segment.BARRIER}
     
-    def get_units(mode, lane_left, *blocks, n_median=1):
+    def get_units(mode, lane_left, *blocks, n_median=1, prepend_median=True):
         roadside = CSURFactory.roadside[mode]
         units = []
         # left side of road
-        if lane_left == Segment.widths[Segment.MEDIAN]:
+        if prepend_median and lane_left == Segment.widths[Segment.MEDIAN]:
             units.append(Segment.MEDIAN)
             segment_left = 0
         elif lane_left > -2:
-            units.append(Segment.BARRIER)
-            segment_left = lane_left - Segment.widths[Segment.BARRIER]
+            units.append(CSURFactory.road_in[mode])
+            segment_left = lane_left - Segment.widths[CSURFactory.road_in[mode]]
         else:
             units.extend(roadside[::-1])
             segment_left = lane_left - sum(Segment.widths[c] for c in roadside)   
@@ -311,8 +311,8 @@ class CSURFactory():
         return BaseRoad(units, x0)
     
     def get_transition(self, lane_lefts, n_lanes, left=False):
-        start, x0_start = CSURFactory.get_units(self.mode, lane_lefts[0], n_lanes[0])
-        end, x0_end = CSURFactory.get_units(self.mode, lane_lefts[1], n_lanes[1])
+        start, x0_start = CSURFactory.get_units(self.mode, lane_lefts[0], n_lanes[0], prepend_median=False)
+        end, x0_end = CSURFactory.get_units(self.mode, lane_lefts[1], n_lanes[1], prepend_median=False)
         if left:
             p, inc = 0, 1
         else:
