@@ -1,6 +1,4 @@
-#from matplotlib import pyplot as plt
-
-DPI = 150
+EPS = 1e-6
 
 LANEWIDTH = 3.75
 
@@ -17,10 +15,10 @@ def offset_x(s):
         return LANEWIDTH * (int(s) - 1.5)
 
 def offset_number(x):
-    if abs((x % LANEWIDTH) / LANEWIDTH - 0.5) < 1e-4:
-        return "%d" % (x / LANEWIDTH + 1.5)
-    elif x % LANEWIDTH == 0:
-        return "%dP" % (x / LANEWIDTH + 1)
+    if abs((x % LANEWIDTH) / LANEWIDTH - 0.5) < EPS:
+        return "%d" % round(x / LANEWIDTH + 1.5)
+    elif x % LANEWIDTH < EPS or x % LANEWIDTH > LANEWIDTH - EPS:
+        return "%dP" % round(x / LANEWIDTH + 1)
     else:
         raise ValueError("Not standardized position of offset %.3f m" % x)
 
@@ -44,38 +42,21 @@ class Segment():
     CURB = 4
     SIDEWALK = 5
     BARRIER = 6
+    CHANNEL = 7
     
     # width of each building unit
-    widths = [0, LANEWIDTH, LANEWIDTH/2, 3.05, 0.5, 2.75, LANEWIDTH/4]
-    # colors of each building unit
-    colors = ["1", 
-              "0.3", 
-              [0.5, 0.55, 0.48], 
-              "0.5", 
-              [0.3, 0.77, 0.25], 
-              "0.7",
-              "0.7"]
-    '''
-    # static helper functions
-    def plot_polygon(ax, xs, dx, **kwargs):
-        points = [[xs[0], 0], [xs[1], Segment.LENGTH], [xs[1] + dx[1], Segment.LENGTH], [xs[0] + dx[0], 0]]
-        return ax.add_patch(plt.Polygon(points, **kwargs))
-    
-    def dashed_line(ax, xs, line_part=[0, 1], **kwargs):
-        return ax.plot([xs[0] + (xs[1] - xs[0]) * line_part[0], xs[0] + (xs[1] - xs[0]) * line_part[1]],
-                       [Segment.LENGTH * line_part[0], Segment.LENGTH * line_part[1]],
-                       color="1", ls='--', dashes=(10, 8))
-    '''
+    widths = [0, LANEWIDTH, LANEWIDTH/2, 3.05, 0.5, 2.75, LANEWIDTH/4, LANEWIDTH/2]
+
     def get_lane_blocks(config, first_lane):
         p1 = first_lane
         lanes = []
         while p1 < len(config):
-            while p1 < len(config) and config[p1] > 1:
+            while p1 < len(config) and config[p1] > Segment.LANE:
                 p1 += 1
             if p1 == len(config):
                 break
             p2 = p1 + 1
-            while config[p2] <= 1:
+            while config[p2] <= Segment.LANE:
                 p2 += 1
             lanes.append([p1, p2])
             p1 = p2
@@ -122,27 +103,7 @@ class Segment():
     
     def __repr__(self):
         return self.__str__()
-    '''    
-    def draw(self, ax=None):
-        if not ax:
-            plt.figure(dpi=DPI)
-            ax = plt.gca()
-        ax.set_aspect('equal', 'box')
-        # Draw polygons
-        for x0, c0, x1, c1 in zip(self.x_start[:-1], self.start, self.x_end[:-1], self.end):
-            Segment.plot_polygon(ax, [x0, x1], [Segment.widths[c0], Segment.widths[c1]],
-                                 color=Segment.colors[c0 or c1])
-        for i in range(1, len(self.start)):
-            if (self.start[i - 1] or self.end[i - 1]) == 1 and (self.start[i] or self.end[i]) == 1:
-                line_part = [0, 1]
-                if not (self.start[i - 1] and self.start[i]):
-                    line_part[0] = 0.5
-                if not (self.end[i - 1] and self.end[i]):
-                    line_part[1] = 0.5    
-                Segment.dashed_line(ax, [self.x_start[i], self.x_end[i]], line_part)
-        if not ax:
-            plt.show()
-    '''
+
 class StandardWidth:
     LANE = Segment.widths[Segment.LANE]
     MEDIAN = Segment.widths[Segment.MEDIAN]
@@ -150,6 +111,7 @@ class StandardWidth:
     CURB = Segment.widths[Segment.CURB]
     SIDEWALK = Segment.widths[Segment.SIDEWALK]
     BARRIER = Segment.widths[Segment.BARRIER]
+    CHANNEL = Segment.widths[Segment.CHANNEL]
 
 
 class Carriageway():
@@ -176,8 +138,8 @@ class Carriageway():
             offset_code = 'R'
         else:
             offset_code = 'L'
-        if self.x_left == Carriageway.init_r \
-                or self.x_right == -Carriageway.init_r \
+        if abs(self.x_left - Carriageway.init_r) < EPS \
+                or abs(self.x_right + Carriageway.init_r) < EPS \
                 or self.get_offset() == 0:
             n_offset = ''
         else:
@@ -191,7 +153,7 @@ class Carriageway():
 class BaseRoad(Segment):
     def __init__(self, units, x0):
         #Construct object
-        super(BaseRoad, self).__init__(units, units, x_left=[x0, x0])
+        super().__init__(units, units, x_left=[x0, x0])
         self.units = self.start
         self.x = self.x_start
     
@@ -213,12 +175,13 @@ class TwoWay(Segment):
         d_end = base_road.end.copy()
         
         # Create a wide median if necessary, using multiple median units
-        if d_start[0] != Segment.MEDIAN:
+        if d_start[0] != Segment.MEDIAN or d_end[0] != Segment.MEDIAN:
             d_start.pop(0)
             d_end.pop(0)
-            n_median = int(base_road.x_start[1] // Segment.widths[Segment.MEDIAN])
-            d_start = [Segment.MEDIAN] * n_median + d_start
-            d_end = [Segment.MEDIAN] * n_median + d_end
+            n_start = int(base_road.x_start[1] // Segment.widths[Segment.MEDIAN])
+            n_end = int(base_road.x_end[1] // Segment.widths[Segment.MEDIAN])
+            d_start = [Segment.MEDIAN] * n_start + [Segment.EMPTY] * max(n_end - n_start, 0)  + d_start
+            d_end = [Segment.MEDIAN] * n_end  + [Segment.EMPTY] * max(n_start - n_end, 0) + d_end
             
         
         d_start = d_start[::-1] + d_start
@@ -227,7 +190,8 @@ class TwoWay(Segment):
         
         self.base_type = str(base_road).split(':')[0]
         super(TwoWay, self).__init__(d_start, d_end, 
-                                     x_left=dx_left, first_lane = len(d_start) // 2)
+                                     x_left=dx_left, 
+                                     first_lane=len(d_start) // 2)
         
         
     def __str__(self):
@@ -340,8 +304,10 @@ class CSURFactory():
                 p += 1
             if p < len(start):
                 if start[p] == Segment.MEDIAN:
+                    start[p] = Segment.CHANNEL
                     end.insert(p, Segment.EMPTY)
                 elif end[p] == Segment.MEDIAN:
+                    end[p] = Segment.CHANNEL
                     start.insert(p, Segment.EMPTY)
                 p += 1
             if len(start) + 1 == len(end):
@@ -365,11 +331,11 @@ class CSURFactory():
             
         # locate (i_a)th lane
         p += i_a - 1
-        # Replace (n_a + 1) lanes with n_a lanes and 2 medians
+        # Replace (n_a + 1) lanes with n_a lanes and 2 channels
         if p + n_a + 1> gnd_road:
             raise ValueError("Not enough lanes to build access road")
-        end = end[:p] + [Segment.MEDIAN, Segment.EMPTY] + n_a * [Segment.LANE] \
-                + [Segment.MEDIAN] + end[p + n_a + 1:]
+        end = end[:p] + [Segment.CHANNEL, Segment.EMPTY] + n_a * [Segment.LANE] \
+                + [Segment.CHANNEL] + end[p + n_a + 1:]
         # Add empty units to instruct segment constructor
         start = start[:p] + [Segment.EMPTY] + start[p:p+n_a+1] + [Segment.EMPTY] + start[p + n_a + 1:]
         return Access(start, end, x_left=[x0, x0], name=name_override)

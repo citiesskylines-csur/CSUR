@@ -3,7 +3,7 @@ from csur import StandardWidth as SW
 from itertools import product
 import csur
 
-DEFAULT_MODE = 'e'
+DEFAULT_MODE = 'g'
 
 N_MEDIAN = 2
 
@@ -158,9 +158,10 @@ def find_access(nlane, base, mode=DEFAULT_MODE, name=None, max_code=8):
 
 flatten = lambda l: [item for sublist in l for item in sublist]
 
-def generate_all(max_lane, max_code=8, setting={}):
+def generate_all(max_lane, max_code=8, setting=None):
     assets = {}
-    
+    if not setting:
+        setting = {'trans_ramp': False}
     # create base segments
     base = []
     for i in range(1, max_lane + 1):
@@ -225,14 +226,15 @@ def generate_all(max_lane, max_code=8, setting={}):
                      if (p[0].x0() == p[1].x0() or p[0].x1() == p[1].x1())]
         p_cur += [(p[1], p[0]) for p in p_cur]
         pairs.extend(p_cur)
-        
-    for i in range(max_lane - 1):
-        p_cur = [p for p in product(base[i], comp[i + 1]) \
-                     if (p[0].x0() == p[1].x0()) #or p[0].x1() == p[1].x1()) \
-                     and (p[1].x1() - p[0].x1() + p[1].x0() - p[0].x0() <= SW.LANE + SW.MEDIAN) \
-                ]
-        p_cur += [(p[1], p[0]) for p in p_cur]
-        pairs.extend(p_cur)
+    
+    if setting['trans_ramp']:
+        for i in range(max_lane - 1):
+            p_cur = [p for p in product(base[i], comp[i + 1]) \
+                        if (p[0].x0() == p[1].x0()) #or p[0].x1() == p[1].x1()) \
+                        and (p[1].x1() - p[0].x1() + p[1].x0() - p[0].x0() <= SW.LANE + SW.MEDIAN) \
+                    ]
+            p_cur += [(p[1], p[0]) for p in p_cur]
+            pairs.extend(p_cur)
         
     for i in range(3, max_lane):
         p_cur = [p for p in product(comp[i], comp[i]) \
