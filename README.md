@@ -1,3 +1,4 @@
 # Cities: Skylines Urban Road [Work in progress]
-A fully modular road asset pack for Cities: Skylines created by automatic module generation and procedural modeling. Based on AmamIya's nicely handcrafted CSUE and CSUR sets.
+A fully modular road asset framework for Cities: Skylines created by automatic module generation and procedural modeling. Based on AmamIya's gorgeously handcrafted CSUE and CSUR sets.
 
+The core road module construction mechanisms in the CSUR framework do not require external Python packages, while Blender 2.80 was used to build all 3D meshes and create texture mappings.
