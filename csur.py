@@ -2,12 +2,6 @@ EPS = 1e-6
 
 LANEWIDTH = 3.75
 
-offsets = {LANEWIDTH * 3.5: '5', 
-           LANEWIDTH * 4: '5P', 
-           LANEWIDTH * 5: '6P', 
-           LANEWIDTH * 6: '7P', 
-           LANEWIDTH * 7: '8P'}
-
 def offset_x(s):
     if s[-1] == 'P':
         return LANEWIDTH * (int(s[:-1]) - 1)
@@ -45,7 +39,7 @@ class Segment():
     CHANNEL = 7
     
     # width of each building unit
-    widths = [0, LANEWIDTH, LANEWIDTH/2, 3.05, 0.5, 2.75, LANEWIDTH/4, LANEWIDTH/2]
+    widths = [0, LANEWIDTH, LANEWIDTH/2, 3.05, 0.5, 2.5, LANEWIDTH/4, LANEWIDTH/2]
 
     def get_lane_blocks(config, first_lane):
         p1 = first_lane
@@ -226,15 +220,22 @@ class Access(Segment):
             return "CSUR-A:" + str(names[0][0]) + ">"+ str(names[1][1])    
 
 class CSURFactory():
-    roadside = {'g': [Segment.MEDIAN, Segment.BIKE, Segment.CURB],
+    '''
+    Mode:
+    g - ground
+    ge - ground express lane
+    '''
+    roadside = {'g': [Segment.MEDIAN, Segment.BIKE, Segment.CURB, Segment.SIDEWALK],
+                'ge': [Segment.CURB],
                 'e': [Segment.BARRIER]
                }
-    road_in = {'g': Segment.CURB, 'e': Segment.BARRIER}
+    road_in = {'g': Segment.CURB, 'ge': Segment.CURB, 'e': Segment.BARRIER}
     
     def get_units(mode, lane_left, *blocks, n_median=1, prepend_median=True):
         roadside = CSURFactory.roadside[mode]
         units = []
         # left side of road
+        print(prepend_median, lane_left)
         if prepend_median and lane_left == Segment.widths[Segment.MEDIAN]:
             units.append(Segment.MEDIAN)
             segment_left = 0
@@ -295,18 +296,23 @@ class CSURFactory():
 
     def get_ramp(self, lane_lefts, n_lanes, n_medians=[1, 1]):
         start, x0_start = CSURFactory.get_units(self.mode, 
-                                                lane_lefts[0], n_lanes[0], n_median=n_medians[0])
+                                                lane_lefts[0], n_lanes[0],
+                                                n_median=n_medians[0], 
+                                                prepend_median=False)
         end, x0_end = CSURFactory.get_units(self.mode, 
-                                            lane_lefts[1], n_lanes[1], n_median=n_medians[1])
+                                            lane_lefts[1], n_lanes[1],
+                                            n_median=n_medians[1],
+                                            prepend_median=False)
         p = 0
         while p < len(start):
             while p < len(start) and start[p] == end[p]:
                 p += 1
             if p < len(start):
-                if start[p] == Segment.MEDIAN:
+                # do not convert central median to channels
+                if start[p] == Segment.MEDIAN and p != 0:
                     start[p] = Segment.CHANNEL
                     end.insert(p, Segment.EMPTY)
-                elif end[p] == Segment.MEDIAN:
+                elif end[p] == Segment.MEDIAN and p != 0:
                     end[p] = Segment.CHANNEL
                     start.insert(p, Segment.EMPTY)
                 p += 1

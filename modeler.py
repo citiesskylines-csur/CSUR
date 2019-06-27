@@ -18,13 +18,8 @@ class Modeler:
     Null is the default modeling settings; different from Segment.EMPTY
     '''
     NULL = 0
-    LANE = 1
-    MEDIAN = 2
-    BIKE = 3
-    CURB = 4
-    SIDEWALK = 5
-    BARRIER = 6
-    CHANNEL = 7
+    SIDEWALK = 1
+    WALL = 2
 
     def __init__(self, config_file):
         self.config = configparser.ConfigParser()
@@ -33,21 +28,42 @@ class Modeler:
         self.lane_border = float(self.config['PARAM']['lane_border'])
         # load textures
         self.texpath = os.path.join(self.config['PATH']['workdir'], 
-                                    self.config['PATH']['tex'],
-                                    self.config['TEX']['road_d'])
-        # Default texture map
+                                    self.config['PATH']['tex'])
+        # road_d is the Default texture map
         self.textures = {'d':{}}
-        self.textures['d'][Modeler.NULL] = bpy.data.images.load(filepath=self.texpath)
+        self.textures['d'][Modeler.NULL] = bpy.data.images.load(
+                                filepath=os.path.join(self.texpath, self.config['TEX']['road_d']))
+        self.textures['d'][Modeler.SIDEWALK] = bpy.data.images.load(
+                                filepath=os.path.join(self.texpath, self.config['TEX']['sidewalk_d']))
+        # wall has the same texture as sidewalk
+        self.textures['d'][Modeler.WALL] = self.textures['d'][Modeler.SIDEWALK]
 
         #load models:
         self.objs = {}
         for k in self.config['UNITS'].keys():
-            obj = self.__load(k)
-            obj.name = 'CSUR_' + k
-            self.objs[k] = obj
-            obj.hide_set(True)
+            if 'bus' not in k:
+                if k == 'sidewalk':
+                    objtype = Modeler.SIDEWALK
+                elif k == 'wall':
+                    objtype = Modeler.WALL
+                else:
+                    objtype = Modeler.NULL
+                obj = self.__load(k, type=objtype)
+                obj.name = 'CSUR_' + k
+                self.objs[k] = obj
+                obj.hide_set(True)
+        # load bus stop; need to merge two models
+        bus_r = self.__load('bus_road', type=Modeler.NULL, recenter=False)
+        bus_s = self.__load('bus_side', type=Modeler.SIDEWALK, recenter=False)
+        obj = make_mesh([bus_r, bus_s])
+        obj.name = 'CSUR_bus_stop'
+        align(obj.data)
+        self.objs['bus_stop'] = obj
+        obj.hide_set(True)
+            
+
    
-    def __load(self, name, type=NULL):
+    def __load(self, name, type=NULL, recenter=True):
         path = os.path.join(self.config['PATH']['workdir'],
                             self.config['PATH']['units'],
                             self.config['UNITS'][name])
@@ -55,7 +71,8 @@ class Modeler:
         obj = bpy.context.selected_objects[0]
         obj.scale = Vector([1, 1, 1])
         obj.location = Vector([0, 0, 0])
-        align(obj.data)
+        if recenter:
+            align(obj.data)
         link_image(obj, self.textures['d'][type])
         return obj
 
@@ -124,10 +141,26 @@ class Modeler:
                                     [xs_start[p] - lb, xs_end[p] - lb], 
                                     [xs_start[p + nblocks] + lb, xs_end[p + nblocks] + lb]))
             elif units[p] == Segment.CURB:
-                obj = self.objs['curb']            
-                objs_created.append(place_unit(obj, 
+                # add a wall to the left end of the road
+                if p == 0:
+                    obj = self.objs['wall']
+                    objs_created.append(place_unit(obj, 
                                     [xs_start[p] + lb, xs_end[p] + lb], 
-                                    [xs_start[p + nblocks], xs_end[p + nblocks]]))    
+                                    [xs_start[p] + lb, xs_end[p] + lb]))
+                    obj = self.objs['curb']            
+                    objs_created.append(place_unit(obj, 
+                                        [xs_start[p], xs_end[p]], 
+                                        [xs_start[p + nblocks] - lb, xs_end[p + nblocks] - lb]))
+                else:
+                    obj = self.objs['curb']            
+                    objs_created.append(place_unit(obj, 
+                                        [xs_start[p] + lb, xs_end[p] + lb], 
+                                        [xs_start[p + nblocks], xs_end[p + nblocks]]))
+            elif units[p] == Segment.SIDEWALK:
+                obj = self.objs['sidewalk']
+                objs_created.append(place_unit(obj, 
+                                    [xs_start[p], xs_end[p]], 
+                                    [xs_start[p + nblocks], xs_end[p + nblocks]]))
             p += nblocks
         return objs_created
 
@@ -150,5 +183,7 @@ class Modeler:
             obj_r.rotation_euler[2] = 3.1415926536
             obj = make_mesh([obj, obj_r])
         obj.name = str(seg)
+        # reset origin
+        reset_origin(obj)
         return obj
                     

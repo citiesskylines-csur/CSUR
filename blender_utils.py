@@ -130,6 +130,15 @@ def make_mesh(objs):
     return obj
 
 '''
+Sets the origin of the object to the scene origin.
+'''
+def reset_origin(obj):
+    for v in obj.data.vertices:
+        v.co += obj.location
+    obj.location = Vector([0, 0, 0])
+
+
+'''
 Places the objects at the polygon defined by XS_LEFT and XS_RIGHT.
 if COPY then the object is duplicated and the duplicate is transformed and placed.
 IF PRESERVE_UV then the UV mapping does not transform when moving vertices 

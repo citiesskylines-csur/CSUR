@@ -6,6 +6,7 @@ import csur
 DEFAULT_MODE = 'g'
 
 N_MEDIAN = 2
+WIDE_SPLIT_MIN = 6
 
 N_MEDIAN_COMB = N_MEDIAN
 N_MEDIAN_RAMP = N_MEDIAN
@@ -40,6 +41,9 @@ class RoadAsset():
         self.next = v_next
         v_next.prev = self
         return self
+    
+    def nl(self):
+        return sum(x.nlanes for x in self.blocks[0])
 
 class BaseAsset(RoadAsset):
     def __init__(self, obj):
@@ -60,7 +64,7 @@ def check_base_road(func):
             if not isinstance(arg.obj, csur.BaseRoad):
                 raise ValueError("Connection modules should be made from base roads")
         if seg1.obj.x == seg2.obj.x:
-            raise ValueError("Two ends connected should be different")
+            raise ValueError("Two ends connected should be different: %s, %s" % (seg1.obj, seg2.obj))
         return func(seg1, seg2, *args)  
     return wrapper
 
@@ -78,15 +82,14 @@ class SpecialFactory(CSURFactory):
         units, x0 = CSURFactory.get_units(self.mode, 3 * SW.MEDIAN, 6)
         return Wide_6R(units, x0)
     
-def find_base(nlane, mode=DEFAULT_MODE, max_code=8):
+def find_base(nlane, mode=DEFAULT_MODE, codes=['5', '5P', '6P', '7P', '8P']):
     base = CSURFactory(mode=mode, roadtype='b')
     roads = []
-    codes = ['5'] + ["%dP" % x for x in range(5, max_code + 1)]
-    lefts = [offset_x(k) - nlane * SW.LANE for k in codes]
+    lefts = [offset_x(k) - nlane * SW.LANE for k in codes if offset_x(k) > nlane * SW.LANE]
     if lefts[0] != SW.MEDIAN:
         lefts.insert(0, SW.MEDIAN)
     for x in lefts:
-        if (x == SW.MEDIAN and nlane > 1) or x > 2 * SW.MEDIAN:
+        if x == SW.MEDIAN or x > 2 * SW.MEDIAN:
             v = BaseAsset(base.get(x, nlane))
             roads.append(v)
     return roads
@@ -142,14 +145,13 @@ def connect(start, end, mode=DEFAULT_MODE):
         return RoadAsset('r', fac.get([x0_l, x1_l], [n0, n1], n_medians=n_medians))
             
 
-def find_access(nlane, base, mode=DEFAULT_MODE, name=None, max_code=8):
+def find_access(nlane, base, mode=DEFAULT_MODE, name=None, codes=['5', '5P', '6P', '7P', '8P']):
     access_roads = []
     fac = CSURFactory(mode=mode, roadtype='a')
     nlane_g = base.blocks[0].nlanes
     x0 = base.x0()
-    codes = ['5'] + ["%dP" % x for x in range(5, max_code + 1)]
     offsets = [offset_x(code) for code in codes]
-    for i_a in range(1, nlane_g - nlane):
+    for i_a in range(2, nlane_g - nlane):
         if x0 + i_a * SW.LANE + SW.MEDIAN in offsets:
             access_roads.append(RoadAsset('a', 
                         fac.get(x0, nlane_g, i_a, nlane, name_override=name)))
@@ -158,32 +160,38 @@ def find_access(nlane, base, mode=DEFAULT_MODE, name=None, max_code=8):
 
 flatten = lambda l: [item for sublist in l for item in sublist]
 
-def generate_all(max_lane, max_code=8, setting=None):
+def generate_all(max_lane, codes_all=['5', '5P', '6P', '7P', '8P'], setting=None):
     assets = {}
     if not setting:
         setting = {'trans_ramp': False}
+
+    non_uniform_offset = isinstance(codes_all[0], list)
+
     # create base segments
     base = []
     for i in range(1, max_lane + 1):
         base.append([])
-        for x in find_base(i, max_code=max_code):
+        codes = codes_all[i - 1] if non_uniform_offset else codes_all
+        for x in find_base(i, codes=codes):
             base[-1].append(x)
     
     assets['base'] = flatten(base)
-    
     # create shift segments
     shift = []
     for roads in base:
-        # shift 1 index, should always within shift increment
+        # shift 1 index
         pairs = []
         for j in range(1, len(roads)):
-            pairs.append((roads[j - 1], roads[j]))
-            pairs.append((roads[j], roads[j - 1]))
-        # shift 2 index, may out of allowable increment
+            if roads[j].x0() - roads[j - 1].x0() <= N_SHIFT * SW.LANE:
+                pairs.append((roads[j - 1], roads[j]))
+                pairs.append((roads[j], roads[j - 1]))
+        # shift 2 index
+        '''
         for j in range(2, len(roads)):         
             if roads[j].x0() - roads[j - 2].x0() <= N_SHIFT * SW.LANE:
                 pairs.append((roads[j - 2], roads[j]))
                 pairs.append((roads[j], roads[j - 2]))
+        '''
         for p in pairs:
             v_f = connect(p[0], p[1])
             #v_f.set_prev(p[0]).set_next(p[1])
@@ -210,7 +218,7 @@ def generate_all(max_lane, max_code=8, setting=None):
     for i in range(len(assets['base'])):
         for j in range(len(assets['base'])):
             sep = (assets['base'][j].x0() - assets['base'][i].x1()) / SW.MEDIAN
-            if sep > 0 and sep == int(sep) and sep <= N_MEDIAN:
+            if sep == 1.0 or (assets['base'][i].nl() + assets['base'][j].nl() >= WIDE_SPLIT_MIN and sep == int(sep) and sep > 0 and sep <= N_MEDIAN):
                 pairs.append([assets['base'][i], assets['base'][j]])
     for p in pairs:
         v_f = combine(p[0], p[1])
@@ -221,7 +229,7 @@ def generate_all(max_lane, max_code=8, setting=None):
     # create ramps
     ramp = []
     pairs = []
-    for i in range(2, max_lane):
+    for i in range(1, max_lane):
         p_cur = [p for p in product(base[i], comp[i]) \
                      if (p[0].x0() == p[1].x0() or p[0].x1() == p[1].x1())]
         p_cur += [(p[1], p[0]) for p in p_cur]
@@ -238,8 +246,7 @@ def generate_all(max_lane, max_code=8, setting=None):
         
     for i in range(3, max_lane):
         p_cur = [p for p in product(comp[i], comp[i]) \
-                     if (p[0].x0() == p[1].x0() and p[0].x1() == p[1].x1() and p[1] != p[0])]
-        p_cur += [(p[1], p[0]) for p in p_cur]
+                     if (p[0].x0() == p[1].x0() and p[0].x1() == p[1].x1() and p[1] is not p[0])]
         pairs.extend(p_cur)
         
     for p in pairs:
@@ -250,20 +257,30 @@ def generate_all(max_lane, max_code=8, setting=None):
     # create access roads
     access = []
     for x in flatten(base[4:]):
-        access.extend(find_access(1, x, max_code=max_code))
-        access.extend(find_access(2, x, max_code=max_code))
-            
+        codes = codes_all[0] if non_uniform_offset else codes_all
+        access.extend(find_access(1, x, codes=codes))
+        codes = codes_all[1] if non_uniform_offset else codes_all
+        access.extend(find_access(2, x, codes=codes))
+    '''
     # handle special modules
     if (max_lane >= 6):
         special_6r9 = BaseAsset(SpecialFactory("6R9").get())
-        access.extend(find_access(1, special_6r9, name="6R9", max_code=max_code))
-        access.extend(find_access(2, special_6r9, name="6R9", max_code=max_code))
+        access.extend(find_access(1, special_6r9, name="6R9", codes=codes))
+        access.extend(find_access(2, special_6r9, name="6R9", codes=codes))
         base[5].append(special_6r9)
-            
-    
-    assets['comp'] = flatten(comp[2:])
+    '''      
+    # post processing
+    # local-express combinations should be at least 4 lanes
+    # and express lanes should be at least 2
+    assets['comp'] = flatten(comp[3:])
+    #assets['comp'] = [x for x in assets['comp'] if x.blocks[0].nlanes >= 2]
     assets['shift'] = shift   
     assets['trans'] = trans
-    assets['ramp'] = ramp
+    #
+    assets['ramp'] = [x for x in ramp \
+                        if len(x.blocks[0]) + len(x.blocks[1]) < 4 \
+                        or (abs(x.blocks[0][0].nlanes - x.blocks[1][0].nlanes) < 3 \
+                        and x.blocks[0][1].x_left - x.blocks[0][0].x_right == SW.MEDIAN)
+                     ]
     assets['access'] = access
     return assets
