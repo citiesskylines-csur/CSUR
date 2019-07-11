@@ -52,6 +52,7 @@ def op_to_func(op, return_selected=False):
 
 set_origin = op_to_func(bpy.ops.object.origin_set)
 duplicate = op_to_func(bpy.ops.object.duplicate, return_selected=True)
+transform_apply = op_to_func(bpy.ops.object.transform_apply)
 
 '''
 Approximate equal operator to prevent truncation error.
@@ -81,19 +82,19 @@ INTERP_TYPE = 'bezier4'
 binom = lambda n, k, x: factorial(n) / (factorial(k) * factorial(n - k)) * x**i * (1-x)**(n-i)
 bezier = lambda pts, t: sum(p * binom(len(pts), i, t) for i, p in enumerate(pts))
 
-def interpolate(x0, x1, alpha):
-    if INTERP_TYPE == 'linear':
+def interpolate(x0, x1, alpha, interp_type=INTERP_TYPE):
+    if interp_type == 'linear':
         return x0 + (x1 - x0) * alpha
-    if INTERP_TYPE == 'cosine':
+    if interp_type == 'cosine':
         return x0 + (x1 - x0) * (1 - cos(alpha * pi)) / 2
-    if 'bezier' in INTERP_TYPE:
-        if INTERP_TYPE == 'bezier2':
+    if 'bezier' in interp_type:
+        if interp_type == 'bezier2':
             u = -2 + 4 * alpha + (5  - 16 * alpha + 16 * alpha**2) ** (1/2)
             b0, b1, b2 = 1/2, -1/2, 1/2
-        elif INTERP_TYPE == 'bezier4':
+        elif interp_type == 'bezier4':
             u = 4 - 8 * alpha + (-11 - 64 * alpha + 64 * alpha**2 ) ** (1/2)
             b0, b1, b2 = 1/2, -3/4 * (1-1.73205j), -1/4 * (1+1.73205j)
-        elif INTERP_TYPE == 'bezier8':
+        elif interp_type == 'bezier8':
             u = 40 - 80 * alpha + (23*5 - 1280*5 * alpha + 1280*5 * alpha**2 ) ** (1/2)
             b0, b1, b2 = 1/2, -7*(1-1.73205j)/(4*5**(1/3)), -(1+1.73205j)/(4*5**(2/3))
         else:
@@ -106,12 +107,17 @@ def interpolate(x0, x1, alpha):
 Partitions the vertices of a mesh along an axis.
 Mesh should be symmetric along the axis
 '''
-def partition(mesh, axis=0):
+def partition(mesh, axis=0, return_center=False):
     u_min = min(v.co[axis] for v in mesh.vertices)
     u_max = max(v.co[axis] for v in mesh.vertices)
     u_center = (u_min + u_max) / 2
-    return [v for v in mesh.vertices if v.co[axis] <= u_center], \
-           [v for v in mesh.vertices if v.co[axis] > u_center]
+    if not return_center:
+        return [v for v in mesh.vertices if v.co[axis] <= u_center], \
+            [v for v in mesh.vertices if v.co[axis] > u_center]
+    else:
+        return [v for v in mesh.vertices if v.co[axis] <= u_center - EPS], \
+            [v for v in mesh.vertices if eq(v.co[axis], u_center)], \
+            [v for v in mesh.vertices if v.co[axis] >= u_center + EPS]
 
 '''
 Make a list of objects OBJ into a single mesh.
@@ -144,7 +150,7 @@ if COPY then the object is duplicated and the duplicate is transformed and place
 IF PRESERVE_UV then the UV mapping does not transform when moving vertices 
 (same behavior as vertex silde)
 '''
-def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0):
+def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=False, scale_all=False):
     xs_left = xs_left.copy()
     xs_right = xs_right.copy()
     if copy:
@@ -156,10 +162,12 @@ def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0):
     if xs_left[0] == xs_left[1] and xs_right[0] == xs_right[1] \
         and eq(xs_right[0] - xs_left[0], dims[0]):
             return obj
+    if preserve_obj:
+        return obj
     for i in [0, 1]:
         xs_left[i] -= x0
         xs_right[i] -= x0
-    vert_l, vert_r = partition(obj.data, axis=0)
+    vert_l, vert_c, vert_r = partition(obj.data, axis=0, return_center=True)
     if preserve_uv:
         uv_xdim = min(l.uv[0] for l in obj.data.uv_layers.active.data),\
                     max(l.uv[0] for l in obj.data.uv_layers.active.data)
@@ -172,23 +180,57 @@ def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0):
                 l = obj.data.uv_layers.active.data[il]
                 alpha = v.co[1] / dims[1] + 0.5
                 if v not in visited:
-                    dx = interpolate(0, xs_left[1], alpha) if v in vert_l \
-                        else interpolate(xs_right[0], xs_right[1], alpha) - dims[0]
+                    if scale_all:
+                        # assume that object is x-aligned
+                        beta = v.co[0] / dims[0]
+                        x1 = interpolate(0, xs_right[0], beta, 'linear')
+                        x2 = interpolate(xs_left[1], xs_right[1], beta, 'linear')
+                        dx = interpolate(x1, x2, alpha) - dims[0] * beta
+                    else:
+                        if v in vert_l:
+                            dx = interpolate(0, xs_left[1], alpha)
+                        elif v in vert_c:
+                            dx = interpolate(xs_right[0] / 2, (xs_left[1] + xs_right[1]) / 2, alpha) - dims[0] / 2
+                        else:
+                            dx = interpolate(xs_right[0], xs_right[1], alpha) - dims[0]
                     v.co[0] += dx
-                    l.uv[0] -= preserve_uv \
-                                    * (dx / dims[0] + int(xs_left[0] > xs_left[1])) \
-                                    * (uv_xdim[1] - uv_xdim[0])
-                    visited[v] = l.uv[0]
+                    if preserve_uv in [-1, 1]:
+                        l.uv[0] -= preserve_uv \
+                                        * (dx / dims[0] + int(xs_left[0] > xs_left[1])) \
+                                        * (uv_xdim[1] - uv_xdim[0])
+                        visited[v] = l.uv[0]
+                    elif preserve_uv in [-2, 2]:
+                        l.uv[1] -= (preserve_uv // 2) \
+                                        * (dx / dims[0] + int(xs_left[0] > xs_left[1])) \
+                                        * (uv_ydim[1] - uv_ydim[0])
+                        visited[v] = l.uv[1]
                 else:
-                    l.uv[0] = visited[v]              
-    else:            
-        if xs_left[0] != xs_left[1]:
-            for v in vert_l:
+                    if preserve_uv in [-1, 1]:
+                        l.uv[0] = visited[v]
+                    elif preserve_uv in [-2, 2]:
+                        l.uv[1] = visited[v]            
+    else:
+        if scale_all:
+            # assume that object is x-aligned
+            for v in obj.data.vertices:
                 alpha = v.co[1] / dims[1] + 0.5
-                dx = interpolate(0, xs_left[1], alpha)
+                beta = v.co[0] / dims[0]
+                x1 = interpolate(0, xs_right[0], beta, 'linear')
+                x2 = interpolate(xs_left[1], xs_right[1], beta, 'linear')
+                dx = interpolate(x1, x2, alpha) - dims[0] * beta
                 v.co[0] += dx
-        for v in vert_r:
-            alpha = v.co[1] / dims[1] + 0.5
-            dx = interpolate(xs_right[0], xs_right[1], alpha) - dims[0]
-            v.co[0] += dx
+        else:  
+            if xs_left[0] != xs_left[1]:
+                for v in vert_l:
+                    alpha = v.co[1] / dims[1] + 0.5
+                    dx = interpolate(0, xs_left[1], alpha)
+                    v.co[0] += dx
+            for v in vert_c:
+                alpha = v.co[1] / dims[1] + 0.5
+                dx = interpolate(xs_right[0] / 2, (xs_left[1] + xs_right[1]) / 2, alpha) - dims[0] / 2
+                v.co[0] += dx
+            for v in vert_r:
+                alpha = v.co[1] / dims[1] + 0.5
+                dx = interpolate(xs_right[0], xs_right[1], alpha) - dims[0]
+                v.co[0] += dx
     return obj

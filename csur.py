@@ -231,11 +231,10 @@ class CSURFactory():
                }
     road_in = {'g': Segment.CURB, 'ge': Segment.CURB, 'e': Segment.BARRIER}
     
-    def get_units(mode, lane_left, *blocks, n_median=1, prepend_median=True):
+    def get_units(mode, lane_left, *blocks, n_median=1, prepend_median=False):
         roadside = CSURFactory.roadside[mode]
         units = []
         # left side of road
-        print(prepend_median, lane_left)
         if prepend_median and lane_left == Segment.widths[Segment.MEDIAN]:
             units.append(Segment.MEDIAN)
             segment_left = 0
