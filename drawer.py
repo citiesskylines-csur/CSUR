@@ -45,8 +45,9 @@ def draw(segment, ax=None):
         plt.show()
 
 if __name__ == "__main__":
-    import csur
+    import csur, builder
     from builder import generate_all
+    builder.N_MEDIAN = 1
     max_lane = 6
     #non-uniform offset
     '''
@@ -58,11 +59,14 @@ if __name__ == "__main__":
                  ['8', '9'],
                 ]
     '''
+
+    
+
     codes_all = [['3', '4', '4P', '5', '5P', '6', '6P', '7P'],
                  ['4', '5', '6', '6P', '7P', '8P', '9'],
                  ['5', '6', '7P', '8P'],
                  ['6', '7', '8P'],
-                 ['7', '8'],
+                 ['8'],
                  ['8', '9'],
                 ]
 
@@ -79,7 +83,7 @@ if __name__ == "__main__":
         print('Type: %s' % key)
         line = [[] for _ in range(max_lane)]
         for x in assetpack[key]:
-            line[x.nl() - 1].append(str(x).split(':')[1])
+            line[x.nl() - 1].append(str(x.get_model()))
         for i, l in enumerate(line):
             if l != []:
                 print('number of lanes: %d' % (i + 1))
@@ -89,8 +93,8 @@ if __name__ == "__main__":
     
     n_medians = [0, 0]
     for s in assetpack['ramp']: 
-        x = 1 if len(s.blocks[1]) == 2 else 0
-        i = int((s.blocks[x][1].x_left - s.blocks[x][0].x_right) / 1.875)
+        x = 1 if len(s.get_blocks()[1]) == 2 else 0
+        i = int((s.get_blocks()[x][1].x_left - s.get_blocks()[x][0].x_right) / 1.875)
         n_medians[i-1] += 1
     print(n_medians)
     '''
