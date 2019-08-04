@@ -29,6 +29,12 @@ BLOCK_SEPERATOR = ""
 DIRECTION_SEPERATOR = "/"
 SEGMENT_END_SEPERATOR = "="
 
+def typecode(roadtype):
+    if roadtype == 'b':
+        return ""
+    else:
+        return roadtype.upper()
+
 def splitlist(arr, val):
     arr = arr.copy()
     splited = []
@@ -88,9 +94,10 @@ class Segment():
     SIDEWALK = 5
     BARRIER = 6
     CHANNEL = 7
+    SHOULDER = 8
     
     # width of each building unit
-    widths = [0, LANEWIDTH, LANEWIDTH/2, 3.05, 0.5, 2.5, LANEWIDTH/4, LANEWIDTH/2]
+    widths = [0, LANEWIDTH, LANEWIDTH/2, 3.05, 0.5, 2.5, LANEWIDTH/4, LANEWIDTH/2, LANEWIDTH/2]
 
     def get_lane_blocks(config):
         p1 = 0
@@ -138,11 +145,14 @@ class Segment():
             decomposed[i] = [Carriageway(sum(cs[i][l[0]:l[1]]), xs[l[0]]) for l in lanes[i]]
         return decomposed
     
-    def typecode(self):
-        return ""
+    def roadtype(self):
+        raise NotImplementedError("Undefined road type!")
+
+    def get_typecode(self):
+        return typecode(self.roadtype())
 
     def __str__(self):
-        prefix = "CSUR-%s:" % self.typecode() if self.typecode() else "CSUR:"
+        prefix = "CSUR-%s:" % self.get_typecode() if self.get_typecode() else "CSUR:"
         return prefix + combine_name(get_name(Segment.decompose(self)))
     
     def __repr__(self):
@@ -179,8 +189,11 @@ class Carriageway():
         if self.get_offset() == 0:
             offset_code = 'C'
             return offset_code
-        elif abs(self.get_offset()) <= Carriageway.init_r:
-            offset_code = 'C1'
+        elif self.get_offset() == Carriageway.init_r:
+            offset_code = 'CR'
+            return offset_code
+        elif self.get_offset() == -Carriageway.init_r:
+            offset_code = 'CL'
             return offset_code
         elif self.get_offset() > Carriageway.init_r:
             offset_code = 'R'
@@ -208,6 +221,9 @@ class BaseRoad(Segment):
         self.units = self.start
         self.x = self.x_start
     
+    def roadtype(self):
+        return 'b'
+
     #Overrides decompose and __str__ methods
     def decompose(self):
         return [Carriageway(l[1] - l[0], self.x_start[l[0]]) \
@@ -250,57 +266,76 @@ class TwoWay(Segment):
          
         start = seg.start.copy()
         end = seg.end.copy()
-        p1 = start.index(Segment.LANE)
-        p2 = end.index(Segment.LANE)
+        fill = Segment.CHANNEL if start[0] == Segment.LANE else Segment.MEDIAN
         if start[0] != Segment.MEDIAN or end[0] != Segment.MEDIAN:
-            p1 = start.index(Segment.LANE)
-            p2 = end.index(Segment.LANE)
+            p1 = p2 = 0
+            while start[p1] and start[p1] != Segment.LANE:
+                p1 += 1
+            while end[p2] and end[p2] != Segment.LANE:
+                p2 += 1   
             start = start[p1:]
             end = end[p2:]
             n_start = int(seg.x_start[p1] // Segment.widths[Segment.MEDIAN])
             n_end = int(seg.x_end[p2] // Segment.widths[Segment.MEDIAN])
-            start = [Segment.MEDIAN] * n_start + [Segment.EMPTY] * max(n_end - n_start, 0)  + start
-            end = [Segment.MEDIAN] * n_end  + [Segment.EMPTY] * max(n_start - n_end, 0) + end
+            start = [fill] * n_start + [Segment.EMPTY] * max(n_end - n_start, 0)  + start
+            end = [fill] * n_end  + [Segment.EMPTY] * max(n_start - n_end, 0) + end
         return type(seg)(start, end)
 
+    @staticmethod
+    def clean_undivided(seg):
+        p1 = p2 = 0
+        while seg.start[p1] and seg.start[p1] != Segment.LANE:
+            p1 += 1
+        while seg.end[p2] and seg.end[p2] != Segment.LANE:
+            p2 += 1
+        start = seg.start.copy()[p1:]
+        end = seg.end.copy()[p2:]
+        if type(seg) == BaseRoad:
+            return BaseRoad(start, x0=seg.x_start[p1])
+        else:
+            return type(seg)(start, end, x_left=[seg.x_start[p1], seg.x_end[p2]])
+
+    @staticmethod
+    def is_undivided(left, right):
+        pl = [x.index(Segment.LANE) for x in [left.start, left.end]]
+        pr = [x.index(Segment.LANE) for x in [right.start, right.end]]
+        return left.x_start[pl[0]] + right.x_end[pr[0]] == 0 or left.x_end[pl[1]] + right.x_start[pr[1]] == 0
+
     # initialize using a left and a right segment
-    def __init__(self, left, right, append_median=False):
+    def __init__(self, left, right, append_median=True):
         self.left = left
         self.right = right
+        self.undivided = TwoWay.is_undivided(left, right)
+        if self.undivided:
+            self.left = TwoWay.clean_undivided(self.left)
+            self.right = TwoWay.clean_undivided(self.right)
         if append_median:
             self.left = TwoWay.create_median(self.left)
             self.right = TwoWay.create_median(self.right)
   
     def __str__(self):
-        typecode = str(self.left.typecode()) + str(self.right.typecode())
+        typecode = str(self.left.get_typecode()) + str(self.right.get_typecode())
         if len(typecode) == 2 and typecode[0] == typecode[1]:
             typecode = typecode[0]
         prefix = "CSUR-%s:" % typecode if typecode else "CSUR:"
         blocks_l = Segment.decompose(self.left)
         blocks_r = Segment.decompose(self.right)
-        names = [twoway_reduced_name(x, y) for x, y in zip(blocks_l, blocks_r)]
+        names = [twoway_reduced_name(x, y) for x, y in zip(blocks_l[::-1], blocks_r)]
         return prefix + combine_name(names)
 
 
  
 class Transition(Segment):
-    def typecode(self):
-        return "T" 
+    def roadtype(self):
+        return "t" 
 
 class Ramp(Segment):
-    def typecode(self):
-        return "R"  
+    def roadtype(self):
+        return "r"  
 
 class Shift(Segment):
-    def typecode(self):
-        return "S" 
-
-class Access(Segment):
-    def __init__(self, *args, **kwargs):
-        super(Access, self).__init__(*args, **kwargs)
-    def __str__(self):
-        names = self.decompose()   
-        return "CSUR-A:" + str(names[0][0]) + ">"+ str(names[1][1])    
+    def roadtype(self):
+        return "s" 
 
 class CSURFactory():
     '''
@@ -308,11 +343,25 @@ class CSURFactory():
     g - ground
     ge - ground express lane
     '''
-    roadside = {'g': [Segment.MEDIAN, Segment.BIKE, Segment.CURB, Segment.SIDEWALK],
+    roadside = {
+                # standard ground road
+                'g': [Segment.MEDIAN, Segment.BIKE, Segment.CURB, Segment.SIDEWALK],
+                # ground express lanes
                 'ge': [Segment.CURB],
-                'e': [Segment.BARRIER]
+                # expressway
+                'ex': [Segment.SHOULDER, Segment.BARRIER],
+                # elevated 
+                'e': [Segment.BARRIER],
+                # bridge
+                'b': [Segment.SIDEWALK, Segment.BARRIER],
+                # slope
+                's': [Segment.BARRIER],
+                # tunnel
+                't': [Segment.BARRIER],  
                }
-    road_in = {'g': Segment.CURB, 'ge': Segment.CURB, 'e': Segment.BARRIER}
+    road_in = {'g': Segment.CURB, 'ge': Segment.CURB, 'e': Segment.BARRIER, 
+                'b': Segment.BARRIER, 'ex': Segment.BARRIER,
+                's': Segment.BARRIER, 't': Segment.BARRIER}
     
     def get_units(mode, lane_left, *blocks, n_median=1, prepend_median=False):
         roadside = CSURFactory.roadside[mode]
@@ -350,8 +399,8 @@ class CSURFactory():
             self.get = self.get_ramp
         elif self.roadtype == 's':
             self.get = self.get_shift
-        elif self.roadtype == 'a':
-            self.get = self.get_access
+        #elif self.roadtype == 'a':
+        #    self.get = self.get_access
         
     def get_base(self, lane_left, *blocks, n_median=1):
         units, x0 = CSURFactory.get_units(self.mode, lane_left, *blocks, n_median=n_median)
@@ -377,6 +426,11 @@ class CSURFactory():
         return Transition(start, end, [x0_start, x0_end])
 
     def get_ramp(self, lane_lefts, n_lanes, n_medians=[1, 1]):
+        if abs(len(n_lanes[0]) - len(n_lanes[1])) == 2 and lane_lefts[0] == lane_lefts[1]:
+            # t: which end is the main road
+            t = len(n_lanes[0]) > len(n_lanes[1])
+            print(lane_lefts, n_lanes, t)
+            return self.get_access(lane_lefts[0], n_lanes[t][0], n_lanes[1-t][0] + 1, n_lanes[1-t][1], reverse=t)
         start, x0_start = CSURFactory.get_units(self.mode, 
                                                 lane_lefts[0], n_lanes[0],
                                                 n_median=n_medians[0], 
@@ -409,7 +463,7 @@ class CSURFactory():
         units, x0 = CSURFactory.get_units(self.mode, lane_lefts[0], *blocks)
         return Shift(units, units, [x0, x0 - lane_lefts[0] + lane_lefts[1]])
 
-    def get_access(self, lane_left, gnd_road, i_a, n_a):
+    def get_access(self, lane_left, gnd_road, i_a, n_a, reverse=False):
         units, x0 = CSURFactory.get_units(self.mode, lane_left, gnd_road)
         start = units.copy()
         end = units.copy()
@@ -422,9 +476,17 @@ class CSURFactory():
         # Replace (n_a + 1) lanes with n_a lanes and 2 channels
         if p + n_a + 1> gnd_road:
             raise ValueError("Not enough lanes to build access road")
-        end = end[:p] + [Segment.CHANNEL, Segment.EMPTY] + n_a * [Segment.LANE] \
-                + [Segment.CHANNEL] + end[p + n_a + 1:]
+        if n_a > 2:
+            raise ValueError("too many lanes for access road ramp!")
+        if n_a == 2:
+            end = end[:p] + [Segment.CHANNEL] + [Segment.LANE, Segment.EMPTY, Segment.LANE] \
+                    + [Segment.CHANNEL] + end[p + n_a + 1:]
+        else:
+            end = end[:p] + [Segment.CHANNEL, Segment.EMPTY] + n_a * [Segment.LANE] \
+                    + [Segment.CHANNEL] + end[p + n_a + 1:]
         # Add empty units to instruct segment constructor
         start = start[:p] + [Segment.EMPTY] + start[p:p+n_a+1] + [Segment.EMPTY] + start[p + n_a + 1:]
-        return Access(start, end, x_left=[x0, x0])
-        
+        if not reverse:
+            return Ramp(start, end, x_left=[x0, x0])
+        else: 
+            return Ramp(end, start, x_left=[x0, x0])

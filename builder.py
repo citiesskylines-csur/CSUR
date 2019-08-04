@@ -1,5 +1,5 @@
 import json
-from csur import Carriageway, offset_x, get_name, combine_name, twoway_reduced_name, CSURFactory
+from csur import Carriageway, offset_x, get_name, combine_name, twoway_reduced_name, CSURFactory, TwoWay
 from csur import StandardWidth as SW
 from itertools import product
 
@@ -18,7 +18,7 @@ class Asset():
             nlanes_start = [nlanes_start]
         if type(nlanes_end) == int:
             nlanes_end = [nlanes_end]
-        self.xleft = [x0_start, x0_end or x0_start]
+        self.xleft = [x0_start, x0_start] if x0_end is None else [x0_start, x0_end]
         self.nlanes = [nlanes_start, nlanes_end or nlanes_start]
         self.medians = medians or [1, 1] 
         self._infer_roadtype()
@@ -55,9 +55,24 @@ class Asset():
     
     def __repr__(self):
         return str(self)
+
+    def nblock(self):
+        return sum(len(x) for x in self._blocks)
+
+    def ntot_start(self):
+        return sum(self.nlanes[0])
+    
+    def ntot_end(self):
+        return sum(self.nlanes[1])
     
     def nl(self):
-        return sum(x.nlanes for x in self._blocks[0])
+        return self.ntot_start()
+
+    def is_undivided(self):
+        return self.xleft[0] == 0 or self.xleft[1] == 0
+
+    def always_undivided(self):
+        return self.xleft[0] == 0 and self.xleft[1] == 0
 
     def get_blocks(self):
         return self._blocks
@@ -69,7 +84,7 @@ class Asset():
         elif self.roadtype == 's':
             return fac.get(self.xleft, self.nlanes[0][0])
         elif self.roadtype == 't':
-            return fac.get(self.xleft, [self.nlanes[0][0], self.nlanes[1][0]])
+            return fac.get(self.xleft, [self.nlanes[0][0], self.nlanes[1][0]], left=self.xleft[0] != self.xleft[1])
         elif self.roadtype == 'r':
             return fac.get(self.xleft, self.nlanes, n_medians=self.medians)
 
@@ -87,16 +102,27 @@ class BaseAsset(Asset):
     def x1(self):
         return self.get_blocks()[-1].x_right
     
+
+class TwoWayAsset(Asset):
+    def __init__(self, left, right, mirror=True):
+        if mirror:
+            self.left = reverse(left)
+        else:
+            self.left = left
+        self.right = right
+        self._blocks = [self.left._blocks[1 - i] + self.right._blocks[i] for i in [0, 1]]
+    
     def nl(self):
         return sum(x.nlanes for x in self._blocks[0])
 
-class TwoWayAsset(Asset):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    def asym(self):
+        return [self.right.nlanes[i][0] - self.left.nlanes[i][0] for i in [0, 1]]
+
+    def get_model(self, mode='g', append_median=True):
+        return TwoWay(self.left.get_model(mode), self.right.get_model(mode), append_median)
 
     def __str__(self):
-        names = [twoway_reduced_name(x, y) for x, y in zip(self.left._blocks, self.right._blocks)]
+        names = [twoway_reduced_name(x, y) for x, y in zip(self.left._blocks[::-1], self.right._blocks)]
         return combine_name(names)
 
 # decorator to check only base roads are passed to the function
@@ -119,9 +145,11 @@ def find_base(nlane, codes=['5', '5P', '6P', '7P', '8P'], mode=DEFAULT_MODE):
         roads.append(v)
     return roads
 
+reverse = lambda a: Asset(a.xleft[1], a.nlanes[1], a.xleft[0], a.nlanes[0], a.medians)
+
 
 @check_base_road
-def combine(express, local, mode=DEFAULT_MODE):
+def combine(express, local):
     n_median = (local.x0() - express.x1()) / SW.MEDIAN
     nl_comb = [x.nlanes for x in express.get_blocks() + local.get_blocks()]
     if int(n_median) == n_median and n_median > 0:
@@ -130,7 +158,7 @@ def combine(express, local, mode=DEFAULT_MODE):
         raise ValueError("Invalid parallel combination!", express, local)
     
 @check_base_road
-def connect(start, end, mode=DEFAULT_MODE):
+def connect(start, end):
     x0_l = start.x0()
     x1_l = end.x0()
     x0_r = start.get_blocks()[-1].x_right
@@ -163,7 +191,7 @@ def connect(start, end, mode=DEFAULT_MODE):
         return Asset(x0_l, n0, x1_l, n1, medians=n_medians)
             
 
-def find_access(nlane, base, mode=DEFAULT_MODE, name=None, codes=['5', '5P', '6P', '7P', '8P']):
+def find_access(nlane, base, name=None, codes=['5', '5P', '6P', '7P', '8P']):
     access_roads = []
     nlane_g = base.get_blocks()[0].nlanes
     x0 = base.x0()
@@ -178,11 +206,16 @@ flatten = lambda l: [item for sublist in l for item in sublist]
 class Builder:
 
     MODE = 'g'
-    N_MEDIAN = 2
+    # integer parameter
+    N_MEDIAN = 1
     WIDE_SPLIT_MIN = 6
     DN_TRANS = 1
-    DN_RAMP = 1
     MAX_UNDIVIDED = 4
+    MAX_TWOWAY_MEDIAN = 1.5
+    # boolean parameters
+    USE_DN_RAMP = 0
+    ASYM_SLIPLANE = 1
+
 
     def __init__(self, base_init, **kwargs):
         for k, v in kwargs.items():
@@ -191,11 +224,19 @@ class Builder:
             else:
                 raise ValueError("Invalid settings item: %s" % k)
         
-        max_lane = len(base_init)
-        self.base = [find_base(i + 1, codes=base_init[i], mode=self.MODE) for i in range(max_lane)]
+        self.max_lane = len(base_init)
+        self.codes = base_init
+        self.base = [find_base(i + 1, codes=base_init[i], mode=self.MODE) for i in range(self.max_lane)]
+        for i in range(1, self.MAX_UNDIVIDED + 1):
+            self.base[i - 1].insert(0, BaseAsset(0, i))
+        self.built = False
+        self.comp = []
+        self.triplex = []
+        self.shift = []
+        self.trans = []
+        self.ramp = []
+        self.twoway = []
         
-            
-
     def load_file(self, file):
         with open(file, 'r') as f:
             settings = json.load(f)
@@ -204,157 +245,197 @@ class Builder:
                     setattr(self, k.upper(), v)
                 else:
                     raise ValueError("Invalid settings item: %s" % k)
-
-
-def generate_all(max_lane, codes_all=['5', '5P', '6P', '7P', '8P'], setting=None):
-    assets = {}
-    if not setting:
-        setting = {'trans_ramp': False,
-                   'max_undivided': 4
-                    }
-
-    non_uniform_offset = isinstance(codes_all[0], list)
-
-    # create base segments
-    base = []
-    for i in range(1, max_lane + 1):
-        base.append([])
-        codes = codes_all[i - 1] if non_uniform_offset else codes_all
-        for x in find_base(i, codes=codes):
-            base[-1].append(x)
-    
-    assets['base'] = flatten(base)
-    # create shift segments
-    shift = []
-    for roads in base:
-        # shift 1 index
+    def _find_comp(self):
+        self.comp = [[] for _ in range(self.max_lane)]
         pairs = []
-        for j in range(1, len(roads)):
-            if roads[j].x0() - roads[j - 1].x0() <= N_SHIFT_MAX * SW.LANE:
-                pairs.append((roads[j - 1], roads[j]))
-                pairs.append((roads[j], roads[j - 1]))
-        # shift 2 index
-        '''
-        for j in range(2, len(roads)):         
-            if roads[j].x0() - roads[j - 2].x0() <= N_SHIFT_MAX * SW.LANE:
-                pairs.append((roads[j - 2], roads[j]))
-                pairs.append((roads[j], roads[j - 2]))
-        '''
+        for p, q in product(flatten(self.base), repeat=2):
+            sep = (q.x0() - p.x1()) / SW.MEDIAN
+            if sep == 1.0 or (p.nl() + q.nl() >= self.WIDE_SPLIT_MIN and sep == int(sep) and sep > 0 and sep <= self.N_MEDIAN):
+                pairs.append([p, q])
+        for p in pairs:
+            v_f = combine(p[0], p[1])
+            #v_f.set_prev(p[0]).set_next(p[1])
+            if v_f.nl() <= self.max_lane:
+                self.comp[v_f.nl() - 1].append(v_f)
+        
+        #create triplex segments
+        self.triplex = [[] for _ in range(self.max_lane)]
+        pairs = []
+        for p, q in product(flatten(self.base), flatten(self.comp)):
+            sep = (q.x0() - p.x1()) / SW.MEDIAN
+            if sep == 1.0 or (p.nl() + q.nl() >= self.WIDE_SPLIT_MIN and sep == int(sep) and sep > 0 and sep <= self.N_MEDIAN):
+                pairs.append([p, q])
+        for p in pairs:
+            v_f = combine(p[0], p[1])
+            #v_f.set_prev(p[0]).set_next(p[1])
+            if v_f.nl() <= self.max_lane:
+                self.triplex[v_f.nl() - 1].append(v_f)
+    
+    def _find_shift(self):
+        pairs = []
+        for roads in self.base:
+            for j in range(1, len(roads)):
+                if roads[j].x0() - roads[j - 1].x0() <= N_SHIFT_MAX * SW.LANE:
+                    pairs.append((roads[j - 1], roads[j]))
+                    pairs.append((roads[j], roads[j - 1]))
+        for p in pairs:
+            v_f = connect(p[0], p[1])
+            self.shift.append(v_f)
+
+    def _find_trans(self):
+        pairs = []
+        # iterate from fewer to more lanes
+        for i in range(self.max_lane):
+            for j in range(i + 1, min(i + self.DN_TRANS + 1, self.max_lane)):
+                p_cur = [p for p in product(self.base[i], self.base[j]) \
+                        if (p[0].x0() == p[1].x0() or p[0].x1() == p[1].x1())]
+                p_cur += [(p[1], p[0]) for p in p_cur]
+                pairs.extend(p_cur)
         for p in pairs:
             v_f = connect(p[0], p[1])
             #v_f.set_prev(p[0]).set_next(p[1])
-            shift.append(v_f)
-            
-    # create trans segments
-    trans = []
-    pairs = []
-    # iterate from fewer to more lanes
-    for i in range(max_lane):
-        for j in range(i + 1, min(i + DN_TRANS + 1, max_lane)):
-            p_cur = [p for p in product(base[i], base[j]) \
-                     if (p[0].x0() == p[1].x0() or p[0].x1() == p[1].x1())]
+            self.trans.append(v_f)
+
+    def _find_ramp(self):
+        ramp = []
+        pairs = []
+        # 1 to 2 ramp
+        for i in range(1, self.max_lane):
+            p_cur = [p for p in product(self.base[i], self.comp[i]) \
+                        if (p[0].x0() == p[1].x0() or p[0].x1() == p[1].x1())]
             p_cur += [(p[1], p[0]) for p in p_cur]
             pairs.extend(p_cur)
-    for p in pairs:
-        v_f = connect(p[0], p[1])
-        #v_f.set_prev(p[0]).set_next(p[1])
-        trans.append(v_f)
         
-    # create local-express segments
-    comp = [[] for _ in range(max_lane)]
-    pairs = []
-    for p, q in product(assets['base'], repeat=2):
-        sep = (q.x0() - p.x1()) / SW.MEDIAN
-        if sep == 1.0 or (p.nl() + q.nl() >= WIDE_SPLIT_MIN and sep == int(sep) and sep > 0 and sep <= N_MEDIAN):
-            pairs.append([p, q])
-    for p in pairs:
-        v_f = combine(p[0], p[1])
-        #v_f.set_prev(p[0]).set_next(p[1])
-        if v_f.nl() <= max_lane:
-            comp[v_f.nl() - 1].append(v_f)
-    
-    #create triplex segments
-    triplex = [[] for _ in range(max_lane)]
-    pairs = []
-    for p, q in product(assets['base'], flatten(comp)):
-        sep = (q.x0() - p.x1()) / SW.MEDIAN
-        if sep == 1.0 or (p.nl() + q.nl() >= WIDE_SPLIT_MIN and sep == int(sep) and sep > 0 and sep <= N_MEDIAN):
-            pairs.append([p, q])
-    for p in pairs:
-        v_f = combine(p[0], p[1])
-        #v_f.set_prev(p[0]).set_next(p[1])
-        if v_f.nl() <= max_lane:
-            triplex[v_f.nl() - 1].append(v_f)
-    
-    # create ramps
-    ramp = []
-    pairs = []
-    # 1 to 2 ramp
-    for i in range(1, max_lane):
-        p_cur = [p for p in product(base[i], comp[i]) \
-                     if (p[0].x0() == p[1].x0() or p[0].x1() == p[1].x1())]
-        p_cur += [(p[1], p[0]) for p in p_cur]
-        pairs.extend(p_cur)
-    
-    # 1 to 2 ramp with transition
-    if setting['trans_ramp']:
-        for i in range(max_lane - 1):
-            p_cur = [p for p in product(base[i], comp[i + 1]) \
-                        if (p[0].x0() == p[1].x0()) #or p[0].x1() == p[1].x1()) \
-                        and (p[1].x1() - p[0].x1() + p[1].x0() - p[0].x0() <= SW.LANE + SW.MEDIAN) \
-                    ]
-            p_cur += [(p[1], p[0]) for p in p_cur]
+        # 1 to 2 ramp with transition
+        if self.USE_DN_RAMP:
+            for i in range(self.max_lane - 1):
+                p_cur = [p for p in product(self.base[i], self.comp[i + 1]) \
+                            if (p[0].x0() == p[1].x0()) #or p[0].x1() == p[1].x1()) \
+                            and (p[1].x1() - p[0].x1() + p[1].x0() - p[0].x0() <= SW.LANE + SW.MEDIAN) \
+                        ]
+                p_cur += [(p[1], p[0]) for p in p_cur]
+                pairs.extend(p_cur)
+        # 2 to 2 ramp
+        # no need to reverse because of exchange symmetry    
+        for i in range(3, self.max_lane):
+            p_cur = [p for p in product(self.comp[i], self.comp[i]) \
+                        if (p[0].x0() == p[1].x0() and p[0].x1() == p[1].x1() and p[1] is not p[0])]
             pairs.extend(p_cur)
-    # 2 to 2 ramp
-    # no need to reverse because of exchange symmetry    
-    for i in range(3, max_lane):
-        p_cur = [p for p in product(comp[i], comp[i]) \
-                     if (p[0].x0() == p[1].x0() and p[0].x1() == p[1].x1() and p[1] is not p[0])]
-        pairs.extend(p_cur)
 
-    # 2 to 3 ramp, starts with 4 lanes
-    # another constraint: number of lanes should be differents at inner and outer ends
-    for i in range(4, max_lane):
-        p_cur = [p for p in product(comp[i], triplex[i]) \
-                     if ((p[0].x0() == p[1].x0() or p[0].x1() == p[1].x1()) \
-                         and p[0].get_blocks()[0].nlanes != p[1].get_blocks()[0].nlanes \
-                         and p[0].get_blocks()[-1].nlanes != p[1].get_blocks()[-1].nlanes \
-                         )]
-        p_cur += [(p[1], p[0]) for p in p_cur]            
-        pairs.extend(p_cur)
+        # 2 to 3 ramp, starts with 4 lanes
+        # another constraint: number of lanes should be differents at inner and outer ends
+        for i in range(4, self.max_lane):
+            p_cur = [p for p in product(self.comp[i], self.triplex[i]) \
+                        if ((p[0].x0() == p[1].x0() or p[0].x1() == p[1].x1()) \
+                            and p[0].get_blocks()[0].nlanes != p[1].get_blocks()[0].nlanes \
+                            and p[0].get_blocks()[-1].nlanes != p[1].get_blocks()[-1].nlanes \
+                            )]
+            p_cur += [(p[1], p[0]) for p in p_cur]            
+            pairs.extend(p_cur)
 
-    for p in pairs:
-        v_f = connect(p[0], p[1])
-        #v_f.set_prev(p[0]).set_next(p[1])
-        ramp.append(v_f)
-    
-    # create access roads
-    access = []
-    for x in flatten(base[4:]):
-        codes = codes_all[0] if non_uniform_offset else codes_all
-        access.extend(find_access(1, x, codes=codes))
-        codes = codes_all[1] if non_uniform_offset else codes_all
-        access.extend(find_access(2, x, codes=codes))
-    '''
-    # handle special modules
-    if (max_lane >= 6):
-        special_6r9 = BaseAsset(SpecialFactory("6R9").get())
-        access.extend(find_access(1, special_6r9, name="6R9", codes=codes))
-        access.extend(find_access(2, special_6r9, name="6R9", codes=codes))
-        base[5].append(special_6r9)
-    '''      
-    # post processing
-    # local-express combinations should be at least 4 lanes
-    # and express lanes should be at least 2
-    assets['comp'] = flatten(comp[3:])
-    #assets['comp'] = [x for x in assets['comp'] if x.get_blocks()[0].nlanes >= 2]
-    assets['shift'] = shift   
-    assets['trans'] = trans
-    #
-    assets['ramp'] = [x for x in ramp \
-                        if len(x.get_blocks()[0]) + len(x.get_blocks()[1]) < 4 \
-                        or (abs(x.get_blocks()[0][0].nlanes - x.get_blocks()[1][0].nlanes) < 3 \
-                        and x.get_blocks()[0][1].x_left - x.get_blocks()[0][0].x_right == SW.MEDIAN)
-                     ]
-    assets['access'] = access
-    return assets
+        for p in pairs:
+            v_f = connect(p[0], p[1])
+            #v_f.set_prev(p[0]).set_next(p[1])
+            self.ramp.append(v_f)
+        
+        # 1 to 3 ramp
+        access = []
+        for x in flatten(self.base[4:]):
+            access.extend(find_access(1, x, codes=self.codes[0])) 
+            access.extend(find_access(2, x, codes=self.codes[1]))
+        access.extend([reverse(a) for a in access])
+        self.ramp.extend(access)
+
+    def _find_twoway(self):
+        # first resolve undivided base segments
+        undivided_base = []
+        for l in self.base:
+            for i, r in enumerate(l.copy()[::-1]):
+                if r.is_undivided():
+                    l.pop(len(l) - i - 1)
+                    undivided_base.append(r)
+        # remove all local-express undivided segments
+        # we can always build them using two base segments
+        for l in self.comp:
+            ntot = len(l.copy())
+            for i, r in enumerate(l.copy()[::-1]):
+                if r.is_undivided():
+                    l.pop(ntot - i - 1)
+        for r in undivided_base:
+            self.twoway.append(TwoWayAsset(r, r))
+        if self.ASYM_SLIPLANE:
+            for r1, r2 in product(undivided_base, repeat=2):
+                if r2.nl() - r1.nl() == 1:
+                    self.twoway.append(TwoWayAsset(r1, r2))
+
+        # make base segments with more than 1 lane and less than 1.5u median two-way
+        for r in flatten(self.base[1:]):
+            if r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE:
+                self.twoway.append(TwoWayAsset(r, r))
+            
+        # make comp segments with more than 4 lanes two-way
+        for r in flatten(self.comp[3:]):
+            if r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE:
+                self.twoway.append(TwoWayAsset(r, r))
+
+
+
+        # find all undivided interface segments
+        # need to account for double counting
+        undivided_interface = []
+        for i in range(len(self.shift) - 1, -1, -1):
+            if self.shift[i].is_undivided():
+                r = self.shift.pop(i)
+                if r.xleft[0] < r.xleft[1]:
+                    undivided_interface.append(r)
+        for i in range(len(self.trans) - 1, -1, -1):
+            if self.trans[i].is_undivided():
+                r = self.trans.pop(i)
+                if r.ntot_start() < r.ntot_end():
+                    undivided_interface.append(r)
+        for i in range(len(self.ramp) - 1, -1, -1):
+            if self.ramp[i].is_undivided():
+                r = self.ramp.pop(i)
+                if len(r._blocks[0]) == 1:
+                    undivided_interface.append(r)
+        for r in undivided_interface:
+            self.twoway.append(TwoWayAsset(r, r))
+
+        if self.ASYM_SLIPLANE:
+            for r1, r2 in product(undivided_base, undivided_interface):
+                if r2.always_undivided():
+                    r_t = TwoWayAsset(r1, r2)
+                    if abs(r_t.asym()[0]) + abs(r_t.asym()[1]) <= 1:
+                        if sum(r_t.asym()) > 0:
+                            self.twoway.append(r_t)
+                        else:
+                            self.twoway.append(TwoWayAsset(r2, r1))
+        
+
+    def build(self):
+        self._find_comp()
+        self._find_shift()
+        self._find_trans()
+        self._find_ramp()
+        self._find_twoway()
+        self.built = True
+        return self
+
+    def get_assets(self):
+        if not self.built:
+            raise Exception("Asset pack not built; use self.build() to build")
+        assets = {}
+        assets['base'] = flatten(self.base)
+        assets['comp'] = flatten(self.comp[3:])
+        assets['shift'] = self.shift   
+        assets['trans'] = self.trans
+        assets['ramp'] = [x for x in self.ramp if x.nblock() == 3]
+        assets['ramp'] += [x for x in self.ramp if abs(len(x._blocks[0]) - len(x._blocks[1])) == 2]
+        assets['ramp'] += [x for x in self.ramp if x.nblock() > 3 \
+                             and abs(x.get_blocks()[0][0].nlanes - x.get_blocks()[1][0].nlanes) < 3\
+                             and x.get_blocks()[0][1].x_left - x.get_blocks()[0][0].x_right == SW.MEDIAN]
+        assets['twoway'] = self.twoway
+        return assets
+
+    def add(self, new_asset):
+        pass

@@ -1,5 +1,6 @@
 import bpy
 from mathutils import Vector
+from math import pi, cos
 
 '''
 Decoreator to deselect all objects before function call.
@@ -58,7 +59,7 @@ transform_apply = op_to_func(bpy.ops.object.transform_apply)
 Approximate equal operator to prevent truncation error.
 EQ for scaler values and DEQ for vector distances.
 '''
-EPS = 1e-5
+EPS = 2e-4
 eq = lambda x, y: abs(x - y) < EPS
 deq = lambda x, y: (x - y).length_squared < EPS ** 2
 
@@ -79,8 +80,8 @@ BEZIER(N=2,4,8): Bezier curve with control points at 1/N and (1-1/N)
 INTERP_TYPE = 'bezier4'
 
 #Parametric bezier curve
-binom = lambda n, k, x: factorial(n) / (factorial(k) * factorial(n - k)) * x**i * (1-x)**(n-i)
-bezier = lambda pts, t: sum(p * binom(len(pts), i, t) for i, p in enumerate(pts))
+binom = lambda n, k, x: factorial(n) / (factorial(k) * factorial(n - k)) * x**k * (1-x)**(n-k)
+bezier = lambda pts, t: sum(p * binom(len(pts) - 1, i, t) for i, p in enumerate(pts))
 
 def interpolate(x0, x1, alpha, interp_type=INTERP_TYPE):
     if interp_type == 'linear':
@@ -119,20 +120,45 @@ def partition(mesh, axis=0, return_center=False):
             [v for v in mesh.vertices if eq(v.co[axis], u_center)], \
             [v for v in mesh.vertices if v.co[axis] >= u_center + EPS]
 
+
+'''
+makes the mirror image an object along the normal plane of an axis.
+returns a duplicate if COPY=TRUE
+Also need to flip normals after applying transform
+'''
+def make_mirror(obj, axis=0, copy=True):
+    if copy:
+        obj = duplicate(obj)
+    obj.scale[axis] = -1
+    transform_apply(obj, scale=True)
+    deselect()
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.editmode_toggle()
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.flip_normals()
+    bpy.ops.object.editmode_toggle()
+    align(obj.data, axis=0)
+    return obj
+
 '''
 Make a list of objects OBJ into a single mesh.
 Also merges overlapping vertices.
 '''
 @selection_safe
-def make_mesh(objs):
+def make_mesh(objs, merge=True, smooth=True):
     bpy.context.view_layer.objects.active = objs[0]
     [o.select_set(True) for o in objs]
     bpy.ops.object.join()
     bpy.ops.object.editmode_toggle()
-    bpy.ops.mesh.remove_doubles(threshold=EPS)
+    if merge:
+        bpy.ops.mesh.remove_doubles(threshold=EPS)
+    if smooth:
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.faces_shade_smooth()
     bpy.ops.object.editmode_toggle()
     obj = bpy.context.view_layer.objects.active
     #obj.select_set(False)   
+    
     return obj
 
 '''
@@ -143,14 +169,13 @@ def reset_origin(obj):
         v.co += obj.location
     obj.location = Vector([0, 0, 0])
 
-
 '''
 Places the objects at the polygon defined by XS_LEFT and XS_RIGHT.
 if COPY then the object is duplicated and the duplicate is transformed and placed.
 IF PRESERVE_UV then the UV mapping does not transform when moving vertices 
 (same behavior as vertex silde)
 '''
-def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=False, scale_all=False):
+def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=False, scale_mode=0, interpolation='bezier4'):
     xs_left = xs_left.copy()
     xs_right = xs_right.copy()
     if copy:
@@ -180,19 +205,22 @@ def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=Fa
                 l = obj.data.uv_layers.active.data[il]
                 alpha = v.co[1] / dims[1] + 0.5
                 if v not in visited:
-                    if scale_all:
+                    if scale_mode:
                         # assume that object is x-aligned
-                        beta = v.co[0] / dims[0]
+                        if scale_mode == 1:
+                            beta = v.co[0] / dims[0]
+                        else:
+                            raise ValueError("non-parallel scaling conflicts with UV perservation!")
                         x1 = interpolate(0, xs_right[0], beta, 'linear')
                         x2 = interpolate(xs_left[1], xs_right[1], beta, 'linear')
-                        dx = interpolate(x1, x2, alpha) - dims[0] * beta
+                        dx = interpolate(x1, x2, alpha, interpolation) - dims[0] * beta
                     else:
                         if v in vert_l:
-                            dx = interpolate(0, xs_left[1], alpha)
+                            dx = interpolate(0, xs_left[1], alpha, interpolation)
                         elif v in vert_c:
-                            dx = interpolate(xs_right[0] / 2, (xs_left[1] + xs_right[1]) / 2, alpha) - dims[0] / 2
+                            dx = interpolate(xs_right[0] / 2, (xs_left[1] + xs_right[1]) / 2, alpha, interpolation) - dims[0] / 2
                         else:
-                            dx = interpolate(xs_right[0], xs_right[1], alpha) - dims[0]
+                            dx = interpolate(xs_right[0], xs_right[1], alpha, interpolation) - dims[0]
                     v.co[0] += dx
                     if preserve_uv in [-1, 1]:
                         l.uv[0] -= preserve_uv \
@@ -210,15 +238,37 @@ def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=Fa
                     elif preserve_uv in [-2, 2]:
                         l.uv[1] = visited[v]            
     else:
-        if scale_all:
+        if scale_mode:
+            x_min = {}
+            x_max = {}
             # assume that object is x-aligned
+            if scale_mode == 2:
+                for v in obj.data.vertices:
+                    if round(v.co[1], 3) not in x_min:
+                        vert_same_y = [u.co[0] for u in obj.data.vertices if eq(v.co[1], u.co[1])]
+                        x_min[round(v.co[1], 3)] = min(vert_same_y)
+                        x_max[round(v.co[1], 3)] = max(vert_same_y)
             for v in obj.data.vertices:
                 alpha = v.co[1] / dims[1] + 0.5
-                beta = v.co[0] / dims[0]
-                x1 = interpolate(0, xs_right[0], beta, 'linear')
-                x2 = interpolate(xs_left[1], xs_right[1], beta, 'linear')
-                dx = interpolate(x1, x2, alpha) - dims[0] * beta
-                v.co[0] += dx
+                if scale_mode == 1:
+                    beta = v.co[0] / dims[0]
+                    x1 = interpolate(0, xs_right[0], beta, 'linear')
+                    x2 = interpolate(xs_left[1], xs_right[1], beta, 'linear')
+                    v.co[0] = interpolate(x1, x2, alpha, interpolation)
+                elif scale_mode == 2:
+                    xmin_cur = x_min[round(v.co[1], 3)]
+                    xmax_cur = x_max[round(v.co[1], 3)]
+                    if eq(xmin_cur, xmax_cur):
+                        beta = eq(v.co[0], xmax_cur)
+                    else:
+                        #print(xmax_cur, xmin_cur, v.co[0], 'cx')
+                        beta = (v.co[0] - xmin_cur) / (xmax_cur - xmin_cur)     
+                        x1 = interpolate(0, xs_right[0], beta, 'linear')
+                        x2 = interpolate(xs_left[1], xs_right[1], beta, 'linear')
+                        #print(x1, x2, beta, alpha)
+                        v.co[0] = interpolate(x1, x2, alpha, interpolation)
+                else:
+                    raise ValueError("invalid scale mode!")
         else:  
             if xs_left[0] != xs_left[1]:
                 for v in vert_l:
@@ -234,3 +284,57 @@ def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=Fa
                 dx = interpolate(xs_right[0], xs_right[1], alpha) - dims[0]
                 v.co[0] += dx
     return obj
+
+
+
+  
+
+'''
+Cleans duplicate materials
+https://blender.stackexchange.com/questions/75790/how-to-merge-around-300-duplicate-materials
+'''
+@selection_safe
+def clean_materials(obj):
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    # only search on own object materials
+    unique_materials = {}
+    remove_slots = []
+    mat_list = [x.material.name for x in bpy.context.object.material_slots]
+
+    # the following only works in object mode
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    for s in bpy.context.object.material_slots:
+        name = s.material.name
+        if name[:-4] not in unique_materials:
+            unique_materials[name[:-4]] = name
+        if name[-3:].isnumeric():
+            # the last 3 characters are numbers
+            if name[:-4] in unique_materials and unique_materials[name[:-4]] != name:
+                index_clean = mat_list.index(unique_materials[name[:-4]])
+                index_wrong = mat_list.index(name)
+                print(index_wrong, index_clean)
+
+                # get the faces which are assigned to the 'wrong' material
+                faces = [x for x in bpy.context.object.data.polygons if x.material_index == index_wrong]
+
+                for f in faces:
+                    f.material_index = index_clean
+
+                remove_slots.append(s.name)
+    print(unique_materials)
+    # now remove all empty material slots:
+    for s in remove_slots:
+        if s in [x.name for x in bpy.context.object.material_slots]:
+            print('removing slot %s' % s)
+            bpy.context.object.active_material_index = [x.material.name for x in bpy.context.object.material_slots].index(s)
+            bpy.ops.object.material_slot_remove()
+
+@selection_safe
+def clean_normals(obj):
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.normals_make_consistent(inside=False)
+    bpy.ops.object.mode_set(mode='OBJECT')
