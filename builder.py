@@ -1,5 +1,6 @@
 import json
-from csur import Carriageway, offset_x, get_name, combine_name, twoway_reduced_name, CSURFactory, TwoWay
+from assets import Asset, BaseAsset, TwoWayAsset, reverse
+from csur import offset_x
 from csur import StandardWidth as SW
 from itertools import product
 
@@ -11,119 +12,6 @@ WIDE_SPLIT_MIN = 6
 N_SHIFT_MAX = 2.0
 DN_TRANS = 1
 DN_RAMP = 1
-
-class Asset():
-    def __init__(self, x0_start, nlanes_start, x0_end=None, nlanes_end=None, medians=None):
-        if type(nlanes_start) == int:
-            nlanes_start = [nlanes_start]
-        if type(nlanes_end) == int:
-            nlanes_end = [nlanes_end]
-        self.xleft = [x0_start, x0_start] if x0_end is None else [x0_start, x0_end]
-        self.nlanes = [nlanes_start, nlanes_end or nlanes_start]
-        self.medians = medians or [1, 1] 
-        self._infer_roadtype()
-        self._infer_blocks()
-        self.pred = []
-        self.succ = []
-        self.left = []
-        self.right = []
-
-    def _infer_roadtype(self):
-        if self.xleft[0] == self.xleft[1] and self.nlanes[0] == self.nlanes[1] and self.medians[0] == self.medians[1]:
-            self.roadtype = 'b'
-        elif len(self.nlanes[0]) == 1 and len(self.nlanes[1]) == 1:
-            if self.nlanes[0] == self.nlanes[1]:
-                self.roadtype = 's'
-            else:
-                self.roadtype = 't'
-        else:
-            self.roadtype = 'r'
-
-    def _infer_blocks(self):
-        self._blocks = [[], []]
-        for i in range(2):
-            x0 = self.xleft[i]
-            for n in self.nlanes[i]:
-                self._blocks[i].append(Carriageway(n, x0))
-                x0 += n * SW.LANE + self.medians[i] * SW.MEDIAN
-    
-    def __eq__(self, other):
-        return self.xleft == other.xleft and self.nlanes == other.nlanes and self.medians == other.medians
-    
-    def __str__(self):
-        return combine_name(get_name(self._blocks))
-    
-    def __repr__(self):
-        return str(self)
-
-    def nblock(self):
-        return sum(len(x) for x in self._blocks)
-
-    def ntot_start(self):
-        return sum(self.nlanes[0])
-    
-    def ntot_end(self):
-        return sum(self.nlanes[1])
-    
-    def nl(self):
-        return self.ntot_start()
-
-    def is_undivided(self):
-        return self.xleft[0] == 0 or self.xleft[1] == 0
-
-    def always_undivided(self):
-        return self.xleft[0] == 0 and self.xleft[1] == 0
-
-    def get_blocks(self):
-        return self._blocks
-
-    def get_model(self, mode='g'):
-        fac = CSURFactory(mode=mode, roadtype=self.roadtype)
-        if self.roadtype == 'b':
-            return fac.get(self.xleft[0], *self.nlanes[0], n_median=self.medians[0])
-        elif self.roadtype == 's':
-            return fac.get(self.xleft, self.nlanes[0][0])
-        elif self.roadtype == 't':
-            return fac.get(self.xleft, [self.nlanes[0][0], self.nlanes[1][0]], left=self.xleft[0] != self.xleft[1])
-        elif self.roadtype == 'r':
-            return fac.get(self.xleft, self.nlanes, n_medians=self.medians)
-
-   
-class BaseAsset(Asset):
-    def __init__(self, x0_start, *nlanes_start, median=1):
-        super().__init__(x0_start, nlanes_start, medians=[median, median])
-
-    def get_blocks(self):
-        return self._blocks[0]
-
-    def x0(self):
-        return self.get_blocks()[0].x_left
-    
-    def x1(self):
-        return self.get_blocks()[-1].x_right
-    
-
-class TwoWayAsset(Asset):
-    def __init__(self, left, right, mirror=True):
-        if mirror:
-            self.left = reverse(left)
-        else:
-            self.left = left
-        self.right = right
-        self._blocks = [self.left._blocks[1 - i] + self.right._blocks[i] for i in [0, 1]]
-    
-    def nl(self):
-        return sum(x.nlanes for x in self._blocks[0])
-
-    def asym(self):
-        return [self.right.nlanes[i][0] - self.left.nlanes[i][0] for i in [0, 1]]
-
-    def get_model(self, mode='g', append_median=True):
-        return TwoWay(self.left.get_model(mode), self.right.get_model(mode), append_median)
-
-    def __str__(self):
-        names = [twoway_reduced_name(x, y) for x, y in zip(self.left._blocks[::-1], self.right._blocks)]
-        return combine_name(names)
 
 # decorator to check only base roads are passed to the function
 def check_base_road(func): 
@@ -144,9 +32,6 @@ def find_base(nlane, codes=['5', '5P', '6P', '7P', '8P'], mode=DEFAULT_MODE):
         v = BaseAsset(x, nlane)
         roads.append(v)
     return roads
-
-reverse = lambda a: Asset(a.xleft[1], a.nlanes[1], a.xleft[0], a.nlanes[0], a.medians)
-
 
 @check_base_road
 def combine(express, local):
@@ -378,8 +263,6 @@ class Builder:
             if r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE:
                 self.twoway.append(TwoWayAsset(r, r))
 
-
-
         # find all undivided interface segments
         # need to account for double counting
         undivided_interface = []
@@ -412,12 +295,13 @@ class Builder:
                             self.twoway.append(TwoWayAsset(r2, r1))
         
 
-    def build(self):
+    def build(self, twoway=True):
         self._find_comp()
         self._find_shift()
         self._find_trans()
         self._find_ramp()
-        self._find_twoway()
+        if twoway:
+            self._find_twoway()
         self.built = True
         return self
 

@@ -47,7 +47,7 @@ def draw(segment, ax=None):
 if __name__ == "__main__":
     import csur, builder
     from builder import Builder
-    builder.N_MEDIAN = 1
+    builder.N_MEDIAN = 2
     max_lane = 6
     #non-uniform offset
     '''
@@ -69,7 +69,7 @@ if __name__ == "__main__":
                  ['7', '8'],
                  ['8', '9'],
                 ]
-
+    
     codes_u = ['5', '5P', '6', '6P', '7', '7P', '8', '8P','9']
 
     #assetpack = generate_all(max_lane, codes_all=codes_all)
@@ -82,15 +82,17 @@ if __name__ == "__main__":
     #    print(o.obj)
     print(len(asset_list))
     for key in assetpack.keys():
-        print('Type: %s' % key)
-        line = [[] for _ in range(max_lane * 2)]
+        #print('Type: %s' % key)
+        #line = [[] for _ in range(max_lane * 2)]
         for x in assetpack[key]:
-            line[x.nl() - 1].append(str(x.get_model()))
-        for i, l in enumerate(line):
-            if l != []:
-                print('number of lanes: %d' % (i + 1))
-                print('\t'.join(l), '\n')
-        print('-'*30)
+            line = str(x.get_model())      
+            print(line)
+        #    line[x.nl() - 1].append(str(x.get_model()))
+        #for i, l in enumerate(line):
+        #    if l != []:
+                #print('number of lanes: %d' % (i + 1))
+                #print('\t'.join(l), '\n')
+        #print('-'*30)
 
     
     n_medians = [0, 0]
@@ -98,7 +100,7 @@ if __name__ == "__main__":
         x = len(s.get_blocks()[1]) > 1
         i = int((s.get_blocks()[x][1].x_left - s.get_blocks()[x][0].x_right) / 1.875)
         n_medians[i-1] += 1
-    print(n_medians)
+    #print(n_medians)
     '''
     #seg = csur.CSURFactory(mode='e', roadtype='a').get(3.75/2,6,3,1)
     seg = csur.CSURFactory(mode='e', roadtype='r').get([3.75*0.5, 3.75*0.5], [3,[3,1]])

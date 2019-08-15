@@ -314,7 +314,6 @@ def clean_materials(obj):
             if name[:-4] in unique_materials and unique_materials[name[:-4]] != name:
                 index_clean = mat_list.index(unique_materials[name[:-4]])
                 index_wrong = mat_list.index(name)
-                print(index_wrong, index_clean)
 
                 # get the faces which are assigned to the 'wrong' material
                 faces = [x for x in bpy.context.object.data.polygons if x.material_index == index_wrong]
@@ -323,11 +322,9 @@ def clean_materials(obj):
                     f.material_index = index_clean
 
                 remove_slots.append(s.name)
-    print(unique_materials)
     # now remove all empty material slots:
     for s in remove_slots:
         if s in [x.name for x in bpy.context.object.material_slots]:
-            print('removing slot %s' % s)
             bpy.context.object.active_material_index = [x.material.name for x in bpy.context.object.material_slots].index(s)
             bpy.ops.object.material_slot_remove()
 

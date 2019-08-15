@@ -26,7 +26,7 @@ def offset_number(x):
 '''
 
 BLOCK_SEPERATOR = ""
-DIRECTION_SEPERATOR = "/"
+DIRECTION_SEPERATOR = "-"
 SEGMENT_END_SEPERATOR = "="
 
 def typecode(roadtype):
@@ -64,19 +64,22 @@ def combine_name(names):
 
 def twoway_reduced_name(block_l, block_r):
     # can reduce same segments in different directions
-    block_l = block_l.copy()
-    block_r = block_r.copy()
+    block_l_copy = block_l.copy()
+    block_r_copy = block_r.copy()
     reduced = []
-    while block_l and block_r:
-        l, r = block_l.pop(0), block_r.pop(0)
+    i = 0
+    while block_l_copy and block_r_copy:
+        l, r = block_l_copy.pop(0), block_r_copy.pop(0)
         if l.x_left + r.x_left == 0:
             centered = Carriageway(l.nlanes + r.nlanes, -l.x_right)
             symm = "D" if l.nlanes == r.nlanes else "A"
             reduced.append("%d%s%s" % (centered.nlanes, symm, centered.suffix()))
+            i += 1
         elif str(l) == str(r):       
             reduced.append("%dD%s" % (2 * l.nlanes, l.suffix()))
-    name_l = [str(x) for x in block_l[::-1]]
-    name_r = [str(x) for x in block_r]
+            i += 1
+    name_l = [str(x) for x in block_l[::-1][i:]]
+    name_r = [str(x) for x in block_r[i:]]
     if not reduced:
         reduced = [DIRECTION_SEPERATOR]
     return name_l + reduced + name_r
@@ -95,9 +98,10 @@ class Segment():
     BARRIER = 6
     CHANNEL = 7
     SHOULDER = 8
+    WEAVE = 9
     
     # width of each building unit
-    widths = [0, LANEWIDTH, LANEWIDTH/2, 3.05, 0.5, 2.5, LANEWIDTH/4, LANEWIDTH/2, LANEWIDTH/2]
+    widths = [0, LANEWIDTH, LANEWIDTH/2, 2.75, 0.5, 3.75, LANEWIDTH/4, LANEWIDTH/2, LANEWIDTH/2, LANEWIDTH/2]
 
     def get_lane_blocks(config):
         p1 = 0
@@ -117,7 +121,7 @@ class Segment():
     # object methods
     def __init__(self, start, end, x_left=[0, 0]):
         if len(start) != len(end):
-            raise ValueError("Cannot create segment: start and end do not align")
+            raise ValueError("Cannot create segment: start and end do not align, start is %s but end is %s" % (start, end))
         self.start = start
         self.end = end
         self.x_start = [sum(Segment.widths[c] for c in start[:i]) for i in range(len(start) + 1)]
@@ -144,7 +148,7 @@ class Segment():
         for i, xs in enumerate([self.x_start, self.x_end]):
             decomposed[i] = [Carriageway(sum(cs[i][l[0]:l[1]]), xs[l[0]]) for l in lanes[i]]
         return decomposed
-    
+  
     def roadtype(self):
         raise NotImplementedError("Undefined road type!")
 
@@ -152,7 +156,7 @@ class Segment():
         return typecode(self.roadtype())
 
     def __str__(self):
-        prefix = "CSUR-%s:" % self.get_typecode() if self.get_typecode() else "CSUR:"
+        prefix = "CSUR-%s " % self.get_typecode() if self.get_typecode() else "CSUR "
         return prefix + combine_name(get_name(Segment.decompose(self)))
     
     def __repr__(self):
@@ -256,17 +260,18 @@ class Undivided(Segment):
 class TwoWay(Segment):
 
     @staticmethod
-    def create_median(seg):
+    def create_median(seg, center): 
+        #print(center, seg)
         if isinstance(seg, BaseRoad):
             p = seg.units.index(Segment.LANE)
             units = seg.units.copy()[p:]
-            n = int(seg.x[p] // Segment.widths[Segment.MEDIAN])
+            n = int((seg.x[p] - center[0]) // Segment.widths[Segment.MEDIAN])
+            #print(seg.x[p], center)
             units = [Segment.MEDIAN] * n + units
-            return BaseRoad(units, 0)
+            return BaseRoad(units, center[0])
          
         start = seg.start.copy()
         end = seg.end.copy()
-        fill = Segment.CHANNEL if start[0] == Segment.LANE else Segment.MEDIAN
         if start[0] != Segment.MEDIAN or end[0] != Segment.MEDIAN:
             p1 = p2 = 0
             while start[p1] and start[p1] != Segment.LANE:
@@ -275,11 +280,13 @@ class TwoWay(Segment):
                 p2 += 1   
             start = start[p1:]
             end = end[p2:]
-            n_start = int(seg.x_start[p1] // Segment.widths[Segment.MEDIAN])
-            n_end = int(seg.x_end[p2] // Segment.widths[Segment.MEDIAN])
-            start = [fill] * n_start + [Segment.EMPTY] * max(n_end - n_start, 0)  + start
+            n_start = int((seg.x_start[p1] - center[0]) // Segment.widths[Segment.MEDIAN])
+            n_end = int((seg.x_end[p2] - center[1]) // Segment.widths[Segment.MEDIAN])
+            #print(seg, center, n_start, n_end)
+            fill = Segment.CHANNEL if start[0] == Segment.LANE or n_start == 0 or n_end == 0 else Segment.MEDIAN
+            start = [fill] * n_start + [Segment.EMPTY] * max(n_end - n_start, 0) + start
             end = [fill] * n_end  + [Segment.EMPTY] * max(n_start - n_end, 0) + end
-        return type(seg)(start, end)
+        return type(seg)(start, end, x_left=[center[0], center[1]])
 
     @staticmethod
     def clean_undivided(seg):
@@ -302,7 +309,7 @@ class TwoWay(Segment):
         return left.x_start[pl[0]] + right.x_end[pr[0]] == 0 or left.x_end[pl[1]] + right.x_start[pr[1]] == 0
 
     # initialize using a left and a right segment
-    def __init__(self, left, right, append_median=True):
+    def __init__(self, left, right, append_median=True, center=0):
         self.left = left
         self.right = right
         self.undivided = TwoWay.is_undivided(left, right)
@@ -310,18 +317,27 @@ class TwoWay(Segment):
             self.left = TwoWay.clean_undivided(self.left)
             self.right = TwoWay.clean_undivided(self.right)
         if append_median:
-            self.left = TwoWay.create_median(self.left)
-            self.right = TwoWay.create_median(self.right)
+            center = [(self.right.x_start[0] - self.left.x_end[0]) / 2, 
+                        (self.right.x_end[0] - self.left.x_start[0]) / 2]
+            self.left = TwoWay.create_median(self.left, [-center[1], -center[0]])
+            self.right = TwoWay.create_median(self.right, center)
   
     def __str__(self):
         typecode = str(self.left.get_typecode()) + str(self.right.get_typecode())
         if len(typecode) == 2 and typecode[0] == typecode[1]:
             typecode = typecode[0]
-        prefix = "CSUR-%s:" % typecode if typecode else "CSUR:"
+        prefix = "CSUR-%s " % typecode if typecode else "CSUR "
         blocks_l = Segment.decompose(self.left)
         blocks_r = Segment.decompose(self.right)
         names = [twoway_reduced_name(x, y) for x, y in zip(blocks_l[::-1], blocks_r)]
         return prefix + combine_name(names)
+
+    def roadtype(self):
+        typestring = (self.left.roadtype() + self.right.roadtype()).strip("b")
+        if len(typestring) > 1 and typestring[0] != typestring[1]:
+            raise Exception("Invalid two-way construction!")
+        return "b" if typestring == "" else typestring[0]
+            
 
 
  
@@ -429,7 +445,6 @@ class CSURFactory():
         if abs(len(n_lanes[0]) - len(n_lanes[1])) == 2 and lane_lefts[0] == lane_lefts[1]:
             # t: which end is the main road
             t = len(n_lanes[0]) > len(n_lanes[1])
-            print(lane_lefts, n_lanes, t)
             return self.get_access(lane_lefts[0], n_lanes[t][0], n_lanes[1-t][0] + 1, n_lanes[1-t][1], reverse=t)
         start, x0_start = CSURFactory.get_units(self.mode, 
                                                 lane_lefts[0], n_lanes[0],

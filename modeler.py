@@ -20,7 +20,7 @@ class Modeler:
     '''
     NULL = 0
     SIDEWALK = 1
-    WALL = 2
+    NODE = 2
     ELEVATED = 3
     BRIDGE = 4
     TUNNEL = 5
@@ -44,6 +44,8 @@ class Modeler:
         self.textures = {'d':{}}
         self.textures['d'][Modeler.NULL] = bpy.data.images.load(
                                 filepath=os.path.join(self.texpath, self.config['TEX']['road_d']))
+        self.textures['d'][Modeler.NODE] = bpy.data.images.load(
+                                filepath=os.path.join(self.texpath, self.config['TEX']['node_d']))
         self.textures['d'][Modeler.SIDEWALK] = bpy.data.images.load(
                                 filepath=os.path.join(self.texpath, self.config['TEX']['sidewalk_d']))
         self.textures['d'][Modeler.ELEVATED] = bpy.data.images.load(
@@ -56,7 +58,7 @@ class Modeler:
                                     filepath=os.path.join(self.texpath, self.config['TEX']['tunnel_d']))                           
 
         #load models:
-        self.objs = {'LANE': {}, 'GROUND': {}, 'ELEVATED': {}, 'BRIDGE': {}, 'TUNNEL': {}, 'SLOPE': {}}
+        self.objs = {'LANE': {}, 'GROUND': {}, 'NODE': {}, 'ELEVATED': {}, 'BRIDGE': {}, 'TUNNEL': {}, 'SLOPE': {}}
         #load lanes
         for k, v in self.config['LANE'].items():
             obj = self.__load(v)
@@ -78,6 +80,12 @@ class Modeler:
             obj = self.__load(v, type=objtype, recenter=(k != 'bus_side'))
             obj.name = 'CSUR_gnd_' + k
             self.objs['GROUND'][k] = obj
+            obj.hide_set(True)
+
+        for k, v in self.config['NODE'].items():
+            obj = self.__load(v, type=Modeler.NODE)
+            obj.name = 'CSUR_node_' + k
+            self.objs['NODE'][k] = obj
             obj.hide_set(True)
         
         if self.bridge:
@@ -120,6 +128,12 @@ class Modeler:
         link_image(obj, self.textures['d'][type])
         return obj
 
+    def save(self, obj, path):
+        deselect()
+        obj.select_set(True)
+        bpy.ops.export_scene.fbx(filepath=path, 
+                axis_forward='Z', axis_up='Y', use_selection=True, bake_space_transform=True)
+
     def __make_lanes(self, units, xs_start, xs_end, busstop=False, divide_line=False):
         deselect()
         lb = self.lane_border
@@ -156,12 +170,15 @@ class Modeler:
                     make_mirror(obj_temp, copy=False)
                     x_left = [xs_start[p], xs_end[p]]
                     objs_created.append(place_unit(obj_temp, x_left, x_right, copy=False))
+                elif units[p - 1] == Segment.WEAVE:
+                    obj = self.objs['LANE']['lane_f']
+                    x_left = [xs_start[p] - LANEWIDTH / 4 + lb, xs_end[p] - LANEWIDTH / 4 + lb]
+                    objs_created.append(place_unit(obj, x_left, x_right))
                 else: 
                     obj = self.objs['LANE']['lane_l']
                     x_left = [xs_start[p] - lb, xs_end[p] - lb]
                     objs_created.append(place_unit(obj, x_left, x_right))
                 if centered_trans_flag:
-                    print(x_left, x_right)
                     x_left = x_right.copy()
                     obj = self.objs['LANE']['lane_f']
                     x_right = [max(x_left), max(x_left)]
@@ -200,12 +217,17 @@ class Modeler:
                                 preserve_uv=1)
                     x_right = [x_left[0] + LANEWIDTH / 2, x_left[1] + LANEWIDTH /2]
                     objs_created.append(place_unit(obj_temp, x_left, x_right, copy=False))
+                elif units[p + nblocks] == Segment.WEAVE:
+                    obj = self.objs['LANE']['lane_f']
+                    x_right = [x_left[0] + 3 * LANEWIDTH / 4 - lb, x_left[1] + 3 * LANEWIDTH /4 - lb]
+                    objs_created.append(place_unit(obj, x_left, x_right))
                 else:
                     if units[p + nblocks:] == CSURFactory.roadside['g'] and busstop:
                         obj = self.objs['LANE']['lane_f']
+                        x_right = [x_left[0] + LANEWIDTH / 2, x_left[1] + LANEWIDTH /2]
                     else:
                         obj = self.objs['LANE']['lane_r']
-                    x_right = [x_left[0] + LANEWIDTH / 2 + lb, x_left[1] + LANEWIDTH /2 + lb]
+                        x_right = [x_left[0] + LANEWIDTH / 2 + lb, x_left[1] + LANEWIDTH /2 + lb]
                     objs_created.append(place_unit(obj, x_left, x_right))
             elif units[p] == Segment.CHANNEL:
                 x0 = [xs_start[p], xs_end[p]]
@@ -224,7 +246,7 @@ class Modeler:
                         else:
                             obj_temp = place_unit(obj, [0, 0], [2*w, 2*w], 
                                                 preserve_uv=1, interpolation='linear')
-                        objs_created.append(place_unit(obj_temp, [-x2[0],-x2[1]], x2, scale_mode=2, copy=False))
+                        objs_created.append(place_unit(obj_temp, [2*x0[0]-x2[0],2*x0[1]-x2[1]], x2, scale_mode=2, copy=False))
                 else:
                     obj = self.objs['LANE']['channel']
                     obj_temp = None 
@@ -242,7 +264,12 @@ class Modeler:
                     x_right = [xs_start[p + nblocks] - lb, xs_end[p + nblocks] - lb]
                 else:
                     x_right = [xs_start[p + nblocks] + lb, xs_end[p + nblocks] + lb]
-                objs_created.append(place_unit(obj, x_left, x_right)) 
+                objs_created.append(place_unit(obj, x_left, x_right))
+            elif units[p] == Segment.WEAVE:
+                obj = self.objs['LANE']['weave'] 
+                objs_created.append(place_unit(obj,
+                        [xs_start[p] + LANEWIDTH / 4 - lb, xs_end[p] + LANEWIDTH / 4 - lb], 
+                        [xs_start[p + nblocks] - LANEWIDTH / 4 + lb, xs_end[p + nblocks] - LANEWIDTH / 4 + lb]))   
             p += nblocks
         return objs_created
 
@@ -258,7 +285,7 @@ class Modeler:
                     or units[p + nblocks] == Segment.EMPTY):
                 nblocks += 1
             if units[p] == Segment.MEDIAN:
-                if xs_start[p] == 0:
+                if p == 0:
                     obj = self.objs['GROUND']['median_h']
                     lanes_extra.append(place_unit(obj,
                             [xs_start[p], xs_end[p]], 
@@ -269,12 +296,12 @@ class Modeler:
                         nblocks = 4
                         obj = self.objs['GROUND']['bus_road']
                         lanes_extra.append(place_unit(obj,
-                            [xs_start[p] + lb, xs_end[p] + lb], 
+                            [xs_start[p], xs_end[p]], 
                             [xs_start[p + nblocks] - lb, xs_end[p + nblocks] - lb],
                             preserve_obj=1))
                         obj = self.objs['GROUND']['bus_side']
                         struc.append(place_unit(obj,
-                            [xs_start[p] + lb, xs_end[p] + lb], 
+                            [xs_start[p], xs_end[p]], 
                             [xs_start[p + nblocks] - lb, xs_end[p + nblocks] - lb],
                             preserve_obj=1))   
                     else:
@@ -402,7 +429,7 @@ class Modeler:
                     or units[p + nblocks] == Segment.EMPTY):
                 nblocks += 1
             if units[p] == Segment.MEDIAN:
-                if xs_start[p] == 0:
+                if p == 0:
                     obj = self.objs['TUNNEL']['median']
                     objs_created.append(place_unit(obj,
                             [xs_start[p], xs_end[p]], 
@@ -427,7 +454,7 @@ class Modeler:
         
         p = 0
         while units[p] in [Segment.MEDIAN, Segment.BARRIER]:
-                p += 1
+            p += 1
         obj = self.objs['TUNNEL']['roof']
         objs_created.append(place_unit(obj, [xs_start[p] - lb, xs_end[p] - lb], [xs_start[-2] + lb, xs_end[-2] + lb]))
         return objs_created
@@ -443,7 +470,7 @@ class Modeler:
                     or units[p + nblocks] == Segment.EMPTY):
                 nblocks += 1
             if units[p] == Segment.CHANNEL:
-                if xs_start[p] == 0:
+                if p == 0:
                     obj = duplicate(self.objs['SLOPE']['median'])
                     if reverse:
                         obj = make_mirror(obj, axis=1, copy=False)
@@ -470,7 +497,7 @@ class Modeler:
         
         p = 0
         while units[p] in [Segment.CHANNEL, Segment.BARRIER]:
-                p += 1
+            p += 1
         obj = duplicate(self.objs['SLOPE']['roof'])
         if reverse:
             obj = make_mirror(obj, axis=1, copy=False)
@@ -561,7 +588,7 @@ class Modeler:
                     or units[p + nblocks] == Segment.EMPTY):
                 nblocks += 1
             if units[p] == Segment.MEDIAN:
-                if xs_start[p] == 0:
+                if p == 0:
                     obj = self.objs['ELEVATED']['median_h']
                     objs_created.append(place_unit(obj,
                             [xs_start[p], xs_end[p]], 
@@ -641,16 +668,16 @@ class Modeler:
         x_start = [-x for x in xeleft[::-1]] + xsright[1:]
         x_end = [-x for x in xsleft[::-1]] + xeright[1:]
         if mode[0] == 'g':
-            lanes_f_extra, struc_f = self.__make_ground(uleft, xsleft, xeleft, busstop)
+            lanes_f_extra, struc_f = self.__make_ground(uright, xsright, xeright, busstop)
             lanes_f.extend(lanes_f_extra)
-            lanes_r_extra, struc_r = self.__make_ground(uright, xsright, xeright, busstop)
+            lanes_r_extra, struc_r = self.__make_ground(uleft, xsleft, xeleft, busstop)
             lanes_r.extend(lanes_r_extra)
             struc = struc_f + struc_r
             struc_f = make_mesh(struc_f, merge=mode[0] != 'b')
             struc_r = make_mesh(struc_r, merge=mode[0] != 'b')
             reset_origin(struc_r)
             struc_r.rotation_euler[2] = 3.1415926536
-            struc = struc_f + struc_r
+            struc = [struc_f, struc_r]
         elif mode[0] == 'e':
             struc = self.__make_elevated(units, x_start, x_end)
         elif mode[0] == 'b':
@@ -673,6 +700,7 @@ class Modeler:
  
     def make(self, seg, mode='g', busstop=False):
         self.check_mode(mode)
+        print(type(seg), type(seg.left), type(seg.right), isinstance(seg, csur.TwoWay))
         if isinstance(seg, csur.TwoWay):
             if seg.undivided:
                 lanes_f, lanes_r, struc = self.__make_undivided(seg, mode, busstop)     
@@ -689,6 +717,10 @@ class Modeler:
             clean_materials(lanes_f)
             clean_materials(lanes_r)
             lanes = [lanes_f, lanes_r]
+            if seg.roadtype() != 'r':
+                lanes = make_mesh([lanes_f, lanes_r])
+                lanes.name = str(seg) + '_lanes'
+                clean_materials(lanes)
         else:
             lanes, struc = self.__make_segment(seg, mode, busstop)
             lanes.name = str(seg) + '_lanes'
@@ -696,3 +728,116 @@ class Modeler:
         struc.name = str(seg) + '_structure'
         clean_materials(struc)
         return lanes, struc
+
+
+    def make_node(self, seg):
+        lb = self.lane_border
+        objs = []
+        if seg.roadtype() != "b":
+            raise ValueError("Node is only valid for base module!")
+        if isinstance(seg, csur.TwoWay):
+            uleft = [x or y for x, y in zip(seg.left.start, seg.left.end)]
+            uright = [x or y for x, y in zip(seg.right.start, seg.right.end)]
+            xsleft, xeleft = seg.left.x_start, seg.left.x_end
+            xsright, xeright = seg.right.x_start, seg.right.x_end
+            units = uleft[::-1] + uright
+            xs_start = [-x for x in xeleft[::-1]] + xsright[1:]
+            xs_end = [-x for x in xsleft[::-1]] + xeright[1:]
+        else:
+            units = [x or y for x, y in zip(seg.start, seg.end)]
+            xs_start, xs_end = seg.x_start, seg.x_end
+        p = 0
+        while p < len(units):
+            nblocks = 1
+            while p + nblocks < len(units) and (units[p + nblocks] == units[p] \
+                    or units[p + nblocks] == Segment.EMPTY):
+                nblocks += 1
+            if units[p] == Segment.MEDIAN:
+                if xs_start[p] < 0 and xs_start[p + nblocks] > 0:
+                    obj = self.objs['NODE']['central_median']
+                    objs.append(place_unit(obj, [xs_start[p] + lb, xs_end[p] + lb],
+                                [xs_start[p + nblocks] - lb, xs_end[p + nblocks] - lb], scale_mode=1))
+                else:
+                    # side median in segment is wider by 0.2m
+                    obj = self.objs['NODE']['side_median']
+                    objs.append(place_unit(obj, [xs_start[p] + lb + 0.1, xs_end[p] + lb + 0.1],
+                                    [xs_start[p + nblocks] - lb - 0.1, xs_end[p + nblocks] - lb - 0.1], scale_mode=1))
+            elif units[p] == Segment.SIDEWALK:
+                obj = self.objs['NODE']['sidewalk']
+                if p == 0:
+                    obj = make_mirror(obj, axis=0)
+                    objs.append(place_unit(obj, 
+                            [xs_start[0], xs_end[0]], 
+                            [xs_start[2] - lb, xs_end[2] - lb], preserve_obj=True, copy=False))
+                else:
+                    objs.append(place_unit(obj, 
+                            [xs_start[-3] + lb, xs_end[-3] + lb], 
+                            [xs_start[-1], xs_end[-1]], preserve_obj=True))
+                
+            p += nblocks
+        objs.append(place_unit(self.objs['NODE']['asphalt'], 
+                    [xs_start[2] - lb, xs_end[2] - lb], 
+                    [xs_start[-3] + lb, xs_end[-3] + lb], scale_mode=1))
+        if isinstance(seg, csur.TwoWay):
+            p = 0
+            while seg.right.start[p] == Segment.MEDIAN:
+                p += 1
+            objs.append(place_unit(self.objs['NODE']['stop_line'], 
+                        [seg.right.start[p], seg.right.end[p]], 
+                        [xs_start[-3], xs_end[-3]]))
+        obj = make_mesh(objs)
+        reset_origin(obj)
+        obj.name = str(seg) + "_node"
+        return obj
+
+    def __get_dc_components(self, seg, divide_line=False):
+        units = [x or y for x, y in zip(seg.start, seg.end)]
+        objs = self.__make_lanes(units, seg.x_start, seg.x_end, divide_line=divide_line)
+        # build central median separately
+        # units = [Segment.SHOULDER]
+        objs_extra, struc = self.__make_ground(units, seg.x_start, seg.x_end)
+        objs.extend(objs_extra)
+        dc_median = seg.x_start[seg.units.index(Segment.LANE)] + LANEWIDTH / 2
+        outmost_lane = seg.decompose()[-1].x_right - LANEWIDTH / 2
+        median = [x for x in objs if x.location[0] < dc_median]
+        lanes = [x for x in objs if dc_median <= x.location[0] < outmost_lane]
+        side = [x for x in objs if x.location[0] >= outmost_lane]
+        median = make_mesh(median)
+        lanes = make_mesh(lanes)
+        side = make_mesh(side)
+        struc = make_mesh(struc)
+        reset_origin(median)
+        reset_origin(lanes)
+        reset_origin(side)
+        reset_origin(struc)
+        return median, lanes, side, struc
+        
+
+    # hetrogeneous direct connect rule: narrow -> wide, center -> offset
+    def make_dc_node(self, seg, target_median=[-LANEWIDTH/2, LANEWIDTH/2]):
+        if seg.roadtype() != "b":
+            raise ValueError("Node is only valid for base module!")
+        if not isinstance(seg, csur.TwoWay):
+            raise ValueError("Direct connect node is only valid for two-way segments!")
+        median_f, lanes_f, side_f, struc_f = self.__get_dc_components(seg.right, divide_line=True)
+        median_r, lanes_r, side_r, struc_r = self.__get_dc_components(seg.left)
+        for x in [median_r, lanes_r, side_r, struc_r]:
+            x.rotation_euler[2] = 3.141592654
+        median = make_mesh([median_f, median_r])
+        lanes = make_mesh([lanes_f, lanes_r])
+        side = make_mesh([side_f, side_r])
+        struc = make_mesh([struc_f, struc_r])
+        my_median = [-seg.left.x_start[seg.left.start.index(Segment.LANE)],
+                      seg.right.x_start[seg.right.start.index(Segment.LANE)]]
+        align(median.data)
+        median = place_unit(median, [my_median[0] - LANEWIDTH/2, target_median[0] - LANEWIDTH/2],
+                                    [my_median[1] + LANEWIDTH/2, target_median[1] + LANEWIDTH/2],
+                                    copy=False)
+        # prevent z-fighting
+        median.location[2] = 0.005
+        transform_apply(median, location=True)
+        lanes = make_mesh([median, lanes])
+        lanes.name = str(seg) + "_dcnode_lanes"
+        side.name = str(seg) + "_dcnode_side"
+        struc.name = str(seg) + "_dcnode_struc"
+        return lanes, side, struc
