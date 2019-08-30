@@ -7,7 +7,6 @@ def isempty(data):
         return True
     if type(data) == dict:
         for v in data.values():
-            print(v)
             if v != None and v != []:
                 return False
         return True

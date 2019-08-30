@@ -88,6 +88,8 @@ def interpolate(x0, x1, alpha, interp_type=INTERP_TYPE):
         return x0 + (x1 - x0) * alpha
     if interp_type == 'cosine':
         return x0 + (x1 - x0) * (1 - cos(alpha * pi)) / 2
+    if interp_type == 'halfcosine':
+        return x0 + (x1 - x0) * (1 - cos(alpha * pi / 2))
     if 'bezier' in interp_type:
         if interp_type == 'bezier2':
             u = -2 + 4 * alpha + (5  - 16 * alpha + 16 * alpha**2) ** (1/2)
@@ -126,7 +128,7 @@ makes the mirror image an object along the normal plane of an axis.
 returns a duplicate if COPY=TRUE
 Also need to flip normals after applying transform
 '''
-def make_mirror(obj, axis=0, copy=True):
+def make_mirror(obj, axis=0, copy=True, realign=True):
     if copy:
         obj = duplicate(obj)
     obj.scale[axis] = -1
@@ -137,7 +139,8 @@ def make_mirror(obj, axis=0, copy=True):
     bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.mesh.flip_normals()
     bpy.ops.object.editmode_toggle()
-    align(obj.data, axis=0)
+    if realign:
+        align(obj.data, axis=0)
     return obj
 
 '''
@@ -157,7 +160,7 @@ def make_mesh(objs, merge=True, smooth=True):
         bpy.ops.mesh.faces_shade_smooth()
     bpy.ops.object.editmode_toggle()
     obj = bpy.context.view_layer.objects.active
-    #obj.select_set(False)   
+    obj.select_set(False)   
     
     return obj
 
@@ -172,8 +175,19 @@ def reset_origin(obj):
 '''
 Places the objects at the polygon defined by XS_LEFT and XS_RIGHT.
 if COPY then the object is duplicated and the duplicate is transformed and placed.
-IF PRESERVE_UV then the UV mapping does not transform when moving vertices 
+
+If PRESERVE_UV then the UV mapping does not transform when moving vertices 
 (same behavior as vertex silde)
+
+If PRESERVE_OBJ then the object will not be deformed and its left side will be placed a
+t xs_left[0]. Used on placing bus stations because they are not specified standard widths.
+
+SCALE_MODE controls how the object is deformed.
+0: the vertices to the left of the center are snapped along xs_left, those to the right are
+   snapped along xs_right, the vertices at the center are snapped along (xs_left + xs_right) / 2.
+   Used on most road pieces like central median and car lanes.
+1: the object is scaled as a whole. Used on structural pieces like slope arches and elevated decks.
+2: same behavior as 1 but only places non-rectangular units. Used on placing triangular channelizing lines.
 '''
 def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=False, scale_mode=0, interpolation='bezier4'):
     xs_left = xs_left.copy()
@@ -261,7 +275,6 @@ def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=Fa
                     if eq(xmin_cur, xmax_cur):
                         beta = eq(v.co[0], xmax_cur)
                     else:
-                        #print(xmax_cur, xmin_cur, v.co[0], 'cx')
                         beta = (v.co[0] - xmin_cur) / (xmax_cur - xmin_cur)     
                         x1 = interpolate(0, xs_right[0], beta, 'linear')
                         x2 = interpolate(xs_left[1], xs_right[1], beta, 'linear')
@@ -273,15 +286,15 @@ def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=Fa
             if xs_left[0] != xs_left[1]:
                 for v in vert_l:
                     alpha = v.co[1] / dims[1] + 0.5
-                    dx = interpolate(0, xs_left[1], alpha)
+                    dx = interpolate(0, xs_left[1], alpha, interpolation)
                     v.co[0] += dx
             for v in vert_c:
                 alpha = v.co[1] / dims[1] + 0.5
-                dx = interpolate(xs_right[0] / 2, (xs_left[1] + xs_right[1]) / 2, alpha) - dims[0] / 2
+                dx = interpolate(xs_right[0] / 2, (xs_left[1] + xs_right[1]) / 2, alpha, interpolation) - dims[0] / 2
                 v.co[0] += dx
             for v in vert_r:
                 alpha = v.co[1] / dims[1] + 0.5
-                dx = interpolate(xs_right[0], xs_right[1], alpha) - dims[0]
+                dx = interpolate(xs_right[0], xs_right[1], alpha, interpolation) - dims[0]
                 v.co[0] += dx
     return obj
 

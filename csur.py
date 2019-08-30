@@ -260,14 +260,15 @@ class Undivided(Segment):
 class TwoWay(Segment):
 
     @staticmethod
-    def create_median(seg, center): 
+    def create_median(seg, center, undivided=False): 
         #print(center, seg)
+        fill = Segment.CHANNEL if undivided else Segment.MEDIAN
         if isinstance(seg, BaseRoad):
             p = seg.units.index(Segment.LANE)
             units = seg.units.copy()[p:]
             n = int((seg.x[p] - center[0]) // Segment.widths[Segment.MEDIAN])
             #print(seg.x[p], center)
-            units = [Segment.MEDIAN] * n + units
+            units = [fill] * n + units
             return BaseRoad(units, center[0])
          
         start = seg.start.copy()
@@ -283,7 +284,6 @@ class TwoWay(Segment):
             n_start = int((seg.x_start[p1] - center[0]) // Segment.widths[Segment.MEDIAN])
             n_end = int((seg.x_end[p2] - center[1]) // Segment.widths[Segment.MEDIAN])
             #print(seg, center, n_start, n_end)
-            fill = Segment.CHANNEL if start[0] == Segment.LANE or n_start == 0 or n_end == 0 else Segment.MEDIAN
             start = [fill] * n_start + [Segment.EMPTY] * max(n_end - n_start, 0) + start
             end = [fill] * n_end  + [Segment.EMPTY] * max(n_start - n_end, 0) + end
         return type(seg)(start, end, x_left=[center[0], center[1]])
@@ -306,7 +306,7 @@ class TwoWay(Segment):
     def is_undivided(left, right):
         pl = [x.index(Segment.LANE) for x in [left.start, left.end]]
         pr = [x.index(Segment.LANE) for x in [right.start, right.end]]
-        return left.x_start[pl[0]] + right.x_end[pr[0]] == 0 or left.x_end[pl[1]] + right.x_start[pr[1]] == 0
+        return left.x_start[pl[0]] + right.x_end[pr[1]] == 0 or left.x_end[pl[1]] + right.x_start[pr[0]] == 0
 
     # initialize using a left and a right segment
     def __init__(self, left, right, append_median=True, center=0):
@@ -319,8 +319,8 @@ class TwoWay(Segment):
         if append_median:
             center = [(self.right.x_start[0] - self.left.x_end[0]) / 2, 
                         (self.right.x_end[0] - self.left.x_start[0]) / 2]
-            self.left = TwoWay.create_median(self.left, [-center[1], -center[0]])
-            self.right = TwoWay.create_median(self.right, center)
+            self.left = TwoWay.create_median(self.left, [-center[1], -center[0]], undivided=self.undivided)
+            self.right = TwoWay.create_median(self.right, center, undivided=self.undivided)
   
     def __str__(self):
         typecode = str(self.left.get_typecode()) + str(self.right.get_typecode())
