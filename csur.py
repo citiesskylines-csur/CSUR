@@ -4,11 +4,13 @@ EPS = 1e-6
 
 LANEWIDTH = 3.75
 
+'''
 def offset_x(s):
     if s[-1] == 'P':
         return LANEWIDTH * (int(s[:-1]) - 1)
     else:
         return LANEWIDTH * (int(s) - 1.5)
+
 
 def offset_number(x):
     if abs((x % LANEWIDTH) / LANEWIDTH - 0.5) < EPS:
@@ -17,6 +19,24 @@ def offset_number(x):
         return "%dP" % round(x / LANEWIDTH + 1)
     else:
         raise ValueError("Not standardized position of offset %.3f m" % x)
+'''
+
+# using new naming scheme
+def offset_x(s):
+    if s[-1] == 'P':
+        return LANEWIDTH * (int(s[:-1]) + 1)
+    else:
+        return LANEWIDTH * (int(s) + 0.5)
+
+
+def offset_number(x):
+    if abs((x % LANEWIDTH) / LANEWIDTH - 0.5) < EPS:
+        return "%d" % round(x / LANEWIDTH - 0.5)
+    elif x % LANEWIDTH < EPS or x % LANEWIDTH > LANEWIDTH - EPS:
+        return "%dP" % round(x / LANEWIDTH - 1)
+    else:
+        raise ValueError("Not standardized position of offset %.3f m" % x)
+
 
 '''def offset_number(x):
     if x not in offsets:
@@ -72,7 +92,7 @@ def twoway_reduced_name(block_l, block_r):
         l, r = block_l_copy.pop(0), block_r_copy.pop(0)
         if l.x_left + r.x_left == 0:
             centered = Carriageway(l.nlanes + r.nlanes, -l.x_right)
-            symm = "D" if l.nlanes == r.nlanes else "A"
+            symm = "D" if l.x_right == r.x_right else "A"
             reduced.append("%d%s%s" % (centered.nlanes, symm, centered.suffix()))
             i += 1
         elif str(l) == str(r):       
@@ -193,13 +213,13 @@ class Carriageway():
         if self.get_offset() == 0:
             offset_code = 'C'
             return offset_code
-        elif self.get_offset() == Carriageway.init_r:
-            offset_code = 'CR'
-            return offset_code
-        elif self.get_offset() == -Carriageway.init_r:
-            offset_code = 'CL'
-            return offset_code
-        elif self.get_offset() > Carriageway.init_r:
+        #elif self.get_offset() == Carriageway.init_r:
+        #    offset_code = 'CR'
+        #    return offset_code
+        #elif self.get_offset() == -Carriageway.init_r:
+        #    offset_code = 'CL'
+        #    return offset_code
+        elif self.get_offset() > 0:
             offset_code = 'R'
         else:
             offset_code = 'L'
@@ -309,7 +329,7 @@ class TwoWay(Segment):
         return left.x_start[pl[0]] + right.x_end[pr[1]] == 0 or left.x_end[pl[1]] + right.x_start[pr[0]] == 0
 
     # initialize using a left and a right segment
-    def __init__(self, left, right, append_median=True, center=0):
+    def __init__(self, left, right, append_median=True):
         self.left = left
         self.right = right
         self.undivided = TwoWay.is_undivided(left, right)
@@ -319,6 +339,8 @@ class TwoWay(Segment):
         if append_median:
             center = [(self.right.x_start[0] - self.left.x_end[0]) / 2, 
                         (self.right.x_end[0] - self.left.x_start[0]) / 2]
+            if not self.undivided and self.left.x_start[-1] == self.right.x_start[-1] and self.left.x_end[-1] == self.right.x_end[-1]:
+                center = [min(center), min(center)]
             self.left = TwoWay.create_median(self.left, [-center[1], -center[0]], undivided=self.undivided)
             self.right = TwoWay.create_median(self.right, center, undivided=self.undivided)
   
@@ -364,6 +386,8 @@ class CSURFactory():
                 'g': [Segment.MEDIAN, Segment.BIKE, Segment.CURB, Segment.SIDEWALK],
                 # ground express lanes
                 'ge': [Segment.CURB],
+                # compact ground w/o bike lanes:
+                'gc': [Segment.CURB, Segment.SIDEWALK],
                 # expressway
                 'ex': [Segment.SHOULDER, Segment.BARRIER],
                 # elevated 
@@ -441,18 +465,18 @@ class CSURFactory():
             raise ValueError("No transition between both ends")
         return Transition(start, end, [x0_start, x0_end])
 
-    def get_ramp(self, lane_lefts, n_lanes, n_medians=[1, 1]):
+    def get_ramp(self, lane_lefts, n_lanes, n_median=[1, 1]):
         if abs(len(n_lanes[0]) - len(n_lanes[1])) == 2 and lane_lefts[0] == lane_lefts[1]:
             # t: which end is the main road
             t = len(n_lanes[0]) > len(n_lanes[1])
             return self.get_access(lane_lefts[0], n_lanes[t][0], n_lanes[1-t][0] + 1, n_lanes[1-t][1], reverse=t)
         start, x0_start = CSURFactory.get_units(self.mode, 
                                                 lane_lefts[0], n_lanes[0],
-                                                n_median=n_medians[0], 
+                                                n_median=n_median[0], 
                                                 prepend_median=False)
         end, x0_end = CSURFactory.get_units(self.mode, 
                                             lane_lefts[1], n_lanes[1],
-                                            n_median=n_medians[1],
+                                            n_median=n_median[1],
                                             prepend_median=False)
         p = 0
         while p < len(start):
@@ -474,7 +498,7 @@ class CSURFactory():
                 
         return Ramp(start, end, [x0_start, x0_end])
     
-    def get_shift(self, lane_lefts, *blocks):
+    def get_shift(self, lane_lefts, *blocks, n_median=[1, 1]):
         units, x0 = CSURFactory.get_units(self.mode, lane_lefts[0], *blocks)
         return Shift(units, units, [x0, x0 - lane_lefts[0] + lane_lefts[1]])
 

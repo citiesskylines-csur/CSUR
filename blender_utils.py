@@ -56,6 +56,16 @@ duplicate = op_to_func(bpy.ops.object.duplicate, return_selected=True)
 transform_apply = op_to_func(bpy.ops.object.transform_apply)
 
 '''
+Deletes an object.
+'''
+def delete(obj):
+    hide = obj.hide_get()
+    obj.hide_set(False)
+    obj.select_set(True)
+    bpy.ops.object.delete()
+    
+
+'''
 Approximate equal operator to prevent truncation error.
 EQ for scaler values and DEQ for vector distances.
 '''

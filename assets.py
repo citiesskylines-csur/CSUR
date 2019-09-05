@@ -81,11 +81,11 @@ class Asset():
         if self.roadtype == 'b':
             seg = fac.get(self.xleft[0], *self.nlanes[0], n_median=self.medians[0])
         elif self.roadtype == 's':
-            seg = fac.get(self.xleft, self.nlanes[0][0])
+            seg = fac.get(self.xleft, self.nlanes[0], n_median=self.medians)
         elif self.roadtype == 't':
             seg = fac.get(self.xleft, [self.nlanes[0][0], self.nlanes[1][0]], left=self.xleft[0] != self.xleft[1])
         elif self.roadtype == 'r':
-            seg = fac.get(self.xleft, self.nlanes, n_medians=self.medians)
+            seg = fac.get(self.xleft, self.nlanes, n_median=self.medians)
         if mode[-1] == 'w':
             if self.roadtype != 'b':
                 raise ValueError("Weave segment is only available for base module!")
@@ -115,14 +115,16 @@ class BaseAsset(Asset):
     
 
 class TwoWayAsset(Asset):
-    def __init__(self, left, right, mirror=True):
+    def __init__(self, left, right, mirror=True, append_median=True):
         if mirror:
             self.left = reverse(left)
+            self.left.roadtype = left.roadtype
         else:
             self.left = left
         self.right = right
         self._blocks = [self.left._blocks[1 - i] + self.right._blocks[i] for i in [0, 1]]
         self._infer_roadtype()
+        self.append_median = append_median
     
     def _infer_roadtype(self):
         typestring = (self.left.roadtype + self.right.roadtype).strip("b")
@@ -136,11 +138,17 @@ class TwoWayAsset(Asset):
     def is_twoway(self):
         return True
 
+    def n_central_median(self):
+        if self.roadtype != 'b':
+            raise NotImplementedError("central median count only avaiable for base module!")
+        return [int(self.left.xleft[0] // SW.MEDIAN), int(self.right.xleft[0] // SW.MEDIAN)]
+
+
     def asym(self):
         return [self.right.nlanes[i][0] - self.left.nlanes[i][0] for i in [0, 1]]
 
-    def get_model(self, mode='g', append_median=True):
-        return TwoWay(self.left.get_model(mode), self.right.get_model(mode), append_median)
+    def get_model(self, mode='g'):
+        return TwoWay(self.left.get_model(mode), self.right.get_model(mode), self.append_median)
 
     def __str__(self):
         names = [twoway_reduced_name(x, y) for x, y in zip(self.left._blocks[::-1], self.right._blocks)]

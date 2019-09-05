@@ -59,15 +59,17 @@ def connect(start, end):
             return Asset(x0_l, n0, x1_l, n0)
         # Look for transition
         else:
-            if abs(n0 - n1) > DN_TRANS or (x0_l != x1_l and x0_r != x1_r):
-                raise ValueError("Invalid transition combination!")
+            if abs(n0 - n1) > DN_TRANS:
+                raise ValueError("Invalid transition increment! %s=%s" % (start, end))
+            elif x0_l != x1_l and x0_r != x1_r:
+                raise ValueError("Invalid transition alignment! %s=%s" % (start, end))
             return Asset(x0_l, n0, x1_l, n1)
     else:
         # Look for ramp
         n0 = [c.nlanes for c in start.get_blocks()]
         n1 = [c.nlanes for c in end.get_blocks()]
         if abs(sum(n0) - sum(n1)) > DN_RAMP or (x0_l != x1_l and x0_r != x1_r):
-            raise ValueError("Invalid ramp combination!")
+            raise ValueError("Invalid ramp combination! %s=%s" % (start, end))
         n_medians = [1, 1]
         if len(n0) > 1:
             n_medians[0] = int((start.get_blocks()[1].x_left - start.get_blocks()[0].x_right) // SW.MEDIAN)
@@ -130,6 +132,7 @@ class Builder:
                     setattr(self, k.upper(), v)
                 else:
                     raise ValueError("Invalid settings item: %s" % k)
+
     def _find_comp(self):
         self.comp = [[] for _ in range(self.max_lane)]
         pairs = []
@@ -138,10 +141,10 @@ class Builder:
             if sep == 1.0 or (p.nl() + q.nl() >= self.WIDE_SPLIT_MIN and sep == int(sep) and sep > 0 and sep <= self.N_MEDIAN):
                 pairs.append([p, q])
         for p in pairs:
-            v_f = combine(p[0], p[1])
-            #v_f.set_prev(p[0]).set_next(p[1])
-            if v_f.nl() <= self.max_lane:
-                self.comp[v_f.nl() - 1].append(v_f)
+            interface_piece = combine(p[0], p[1])
+            #interface_piece.set_prev(p[0]).set_next(p[1])
+            if interface_piece.nl() <= self.max_lane:
+                self.comp[interface_piece.nl() - 1].append(interface_piece)
         
         #create triplex segments
         self.triplex = [[] for _ in range(self.max_lane)]
@@ -151,10 +154,10 @@ class Builder:
             if sep == 1.0 or (p.nl() + q.nl() >= self.WIDE_SPLIT_MIN and sep == int(sep) and sep > 0 and sep <= self.N_MEDIAN):
                 pairs.append([p, q])
         for p in pairs:
-            v_f = combine(p[0], p[1])
-            #v_f.set_prev(p[0]).set_next(p[1])
-            if v_f.nl() <= self.max_lane:
-                self.triplex[v_f.nl() - 1].append(v_f)
+            interface_piece = combine(p[0], p[1])
+            #interface_piece.set_prev(p[0]).set_next(p[1])
+            if interface_piece.nl() <= self.max_lane:
+                self.triplex[interface_piece.nl() - 1].append(interface_piece)
     
     def _find_shift(self):
         pairs = []
@@ -164,8 +167,8 @@ class Builder:
                     pairs.append((roads[j - 1], roads[j]))
                     pairs.append((roads[j], roads[j - 1]))
         for p in pairs:
-            v_f = connect(p[0], p[1])
-            self.shift.append(v_f)
+            interface_piece = connect(p[0], p[1])
+            self.shift.append(interface_piece)
 
     def _find_trans(self):
         pairs = []
@@ -177,9 +180,9 @@ class Builder:
                 p_cur += [(p[1], p[0]) for p in p_cur]
                 pairs.extend(p_cur)
         for p in pairs:
-            v_f = connect(p[0], p[1])
-            #v_f.set_prev(p[0]).set_next(p[1])
-            self.trans.append(v_f)
+            interface_piece = connect(p[0], p[1])
+            #interface_piece.set_prev(p[0]).set_next(p[1])
+            self.trans.append(interface_piece)
 
     def _find_ramp(self):
         ramp = []
@@ -219,9 +222,9 @@ class Builder:
             pairs.extend(p_cur)
 
         for p in pairs:
-            v_f = connect(p[0], p[1])
-            #v_f.set_prev(p[0]).set_next(p[1])
-            self.ramp.append(v_f)
+            interface_piece = connect(p[0], p[1])
+            #interface_piece.set_prev(p[0]).set_next(p[1])
+            self.ramp.append(interface_piece)
         
         # 1 to 3 ramp
         access = []
@@ -321,5 +324,82 @@ class Builder:
         assets['twoway'] = self.twoway
         return assets
 
-    def add(self, new_asset):
-        pass
+    def get_dependency(self, new_asset):
+        if not self.built:
+            raise Exception("Cannot resolve dependency: asset pack not built!")
+        if new_asset.roadtype != 'b':
+            raise ValueError("Dependency can only be calculated for base asset!")
+        # TODO: check for existing assets in the pack
+        dependencies = []
+
+        pairs = []
+        # find shift segments to add
+        for road in self.base[new_asset.nl() - 1]:
+            if abs(road.x0() - new_asset.x0()) <= N_SHIFT_MAX * SW.LANE:
+                pairs.append((road, new_asset))
+                pairs.append((new_asset, road))
+    
+        # find transition segments to add
+        # also add composite segments to fork
+        candidates = self.comp[new_asset.nl() - 1].copy()
+        if new_asset.nl() > 1:
+            candidates += self.base[new_asset.nl() - 2]
+        if new_asset.nl() < len(self.base):
+            candidates += self.base[new_asset.nl()]
+        for road in candidates:
+            if road.x0() == new_asset.x0() or road.x1() == new_asset.x1():
+                pairs.append((road, new_asset))
+                pairs.append((new_asset, road))
+        # find composite segments to add
+        left_neighbors = []
+        left_temp = []
+        right_neighbors = []
+        forks = []
+        for road in flatten(self.base):
+            lspace = new_asset.x0() - road.x1()
+            rspace = road.x0() - new_asset.x1()
+            nlane = road.nl() + new_asset.nl()
+            if lspace == SW.MEDIAN or \
+                (nlane >= WIDE_SPLIT_MIN and lspace > 0 and lspace / SW.MEDIAN == int(lspace / SW.MEDIAN)):
+                left_temp.append(road)
+                left_neighbors.append(combine(road, new_asset))
+            if rspace == SW.MEDIAN or \
+                (nlane >= WIDE_SPLIT_MIN and rspace > 0 and rspace / SW.MEDIAN == int(rspace / SW.MEDIAN)):
+                right_neighbors.append(combine(new_asset, road))
+        # add duplex pairs
+        for duplex in left_neighbors + right_neighbors:
+            if duplex.nl() <= self.max_lane:
+                self.comp[duplex.nl() - 1].append(duplex)
+                if duplex.nl() > 3:
+                    dependencies.append(duplex)
+                for road in self.base[duplex.nl() - 1]:
+                    if road.x0() == duplex.x0() or road.x1() == duplex.x1():
+                        pairs.append((road, duplex))
+                        pairs.append((duplex, road))
+        # add triplex pairs
+        for triplex in [combine(left, duplex_r) \
+                    for left, duplex_r in product(left_temp, right_neighbors)]:
+            if triplex.nl() <= self.max_lane:
+                self.triplex[triplex.nl() - 1].append(triplex)
+                for comp in self.comp[triplex.nl() - 1]:
+                    if road.x0() == triplex.x0() or road.x1() == triplex.x1():
+                        pairs.append((comp, triplex))
+                        pairs.append((triplex, comp))
+        #print(pairs, left_neighbors, right_neighbors)
+        for p in pairs:
+            interface_piece = connect(p[0], p[1])
+            dependencies.append(interface_piece)
+        # update the added modules to the asset pack
+        self.base[new_asset.nl() - 1].append(new_asset)
+
+        for road in dependencies:
+            if road.roadtype == 's':
+                self.shift.append(road)
+            elif road.roadtype == 't':
+                self.trans.append(road)
+            elif road.roadtype == 'r':
+                self.ramp.append(road)
+        return dependencies
+        
+
+        

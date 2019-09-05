@@ -7,13 +7,12 @@ from csur import Segment
 
 class AssetMaker:
 
-    connectgroup = {'11': 'WideTram', '33': 'SingleTram', '44': 'NarrowTram',
-                    '-31': 'DoubleTrain', '00': 'SingleTrain', '-2-2': 'TrainStation',
-                    '13': 'CenterTram', '14': 'CenterTram'}
+    connectgroup = {'None': 'None', '11': 'WideTram', '33': 'SingleTram', '31': 'NarrowTram',
+                    '3-1': 'DoubleTrain', '00': 'CenterTram', '1-1': 'SingleTrain'}
 
     names = {'g': 'basic', 'e': 'elevated', 'b': 'bridge', 't': 'tunnel', 's': 'slope'}
     shaders = {'g': 'Road', 'e': 'RoadBridge', 'b': 'RoadBridge', 't': 'Metro', 's': 'Metro'}
-    suffix = {'e': 'express', 'w': 'weave'}
+    suffix = {'e': 'express', 'w': 'weave', 'c': 'compact', 'p': 'parking'}
     textype = {'l': 'adr', 'g': 'd', 'e': 'dr', 'b': 'adrs', 't': 'd', 's': 'd', 'n': 'adr'}
 
     segment_presets = {}
@@ -40,7 +39,6 @@ class AssetMaker:
             self.lanes = json.load(f)
         with open(os.path.join(self.template_path, 'props.json'), 'r') as f:
             self.props = json.load(f)
-        self.dcnode_created = False
 
     def __initialize_assetinfo(self, asset):
         self.assetdata = {}
@@ -122,11 +120,38 @@ class AssetMaker:
             self.__write_lane_textures(mode, name, split=True)
         else:
             self.modeler.save(seg_lanes, os.path.join(self.output_path, '%s_%slanes.FBX' % (name, mode)))
-            self.__add_segment('%s_%slanes' % (str(seg), mode), mode=mode[0])
+            self.__add_segment('%s_%slanes' % (name, mode), mode=mode[0])
             self.__write_lane_textures(mode, name)
         self.modeler.save(seg_struc, os.path.join(self.output_path, '%s_%s.FBX' % (name, modename)))
-        self.__add_segment('%s_%s' % (str(seg), modename), mode=mode[0])
+        self.__add_segment('%s_%s' % (name, modename), mode=mode[0])
         self.__write_struc_textures(mode, name)
+
+    def __create_stop(self, asset, mode, busstop):
+        if not busstop:
+            raise ValueError("stop type should be specified!")
+        modename = AssetMaker.names[mode[0]]
+        seg = asset.get_model(mode)
+        name = str(seg) + bool(busstop) * '_stop_%s' % busstop
+        if busstop == 'brt':
+            seg_lanes, seg_struc, brt = self.modeler.make(seg, mode, busstop=busstop)
+            preset = 'stopignored'
+        else:
+            seg_lanes, seg_struc = self.modeler.make(seg, mode, busstop=busstop)
+            preset = 'stop' + busstop
+        if len(mode) > 1:
+            modename += AssetMaker.suffix[mode[1]]
+        self.modeler.save(seg_lanes, os.path.join(self.output_path, '%s_%slanes.FBX' % (name, mode)))
+        self.__add_segment('%s_%slanes' % (name, mode), mode=mode[0], preset=preset)
+        self.__write_lane_textures(mode, name)
+        self.modeler.save(seg_struc, os.path.join(self.output_path, '%s_%s.FBX' % (name, modename)))
+        self.__add_segment('%s_%s' % (name, modename), mode=mode[0], preset=preset)
+        self.__write_struc_textures(mode, name)
+        if busstop == 'brt':
+            self.modeler.save(brt, os.path.join(self.output_path, '%s_brt_platform.FBX' % name))
+            for t in 'ads':
+                src = os.path.join(self.texture_path, 'brt_platform_%s.png' % t)
+                shutil.copy(src, os.path.join(self.output_path, '%s_brt_platform_%s.png' % (name, t)))
+
 
     def __create_node(self, asset):
         seg = asset.get_model('g')
@@ -139,21 +164,28 @@ class AssetMaker:
         self.__add_node('%s_junction' % name, preset='trafficlight')
         self.__write_node_textures('%s_junction' % name)
 
-    def __create_dcnode(self, asset, target_median='11'):
+    def __create_dcnode(self, asset, target_median=None, asym_mode=None):
         MW = 1.875
         seg = asset.get_model('g')
+        if target_median is None:
+            medians = None
+            target_median = self.__get_mediancode(asset)
+        else:
+            split = 1 if target_median[0] != '-' else 2
+            medians = [-int(target_median[:split])*MW, int(target_median[split:])*MW]
         name = '%s_dcnode_%s' % (str(seg), target_median)
-        split = 1 if target_median[0] != '-' else 2
-        medians = [-int(target_median[:split])*MW, int(target_median[split:])*MW]
-        lanes, side = self.modeler.make_dc_node(seg, target_median=medians)
-        self.modeler.save(lanes, os.path.join(self.output_path, '%s_lanes.FBX' % name))
-        self.__add_node('%s_lanes' % name, preset='direct', connectgroup=AssetMaker.connectgroup[target_median])
-        self.__write_dcnode_textures('%s_lanes' % name)
-        if not self.dcnode_created:
-           # self.modeler.save(side, os.path.join(self.output_path, '%s_side.FBX' % name))
-           # self.__add_node('%s_side' % name, preset='nojunction')
-           # self.__write_dcnode_textures('%s_side' % name)
-           self.dcnode_created = True
+        if asym_mode == 'restore':
+            dcnode, target_median = self.modeler.make_asym_restore_node(seg)
+        elif asym_mode == 'average':
+            pass
+        elif asym_mode == 'reverse':
+            pass
+        else:
+            dcnode = self.modeler.make_dc_node(seg, target_median=medians)
+        self.modeler.save(dcnode, os.path.join(self.output_path, '%s.FBX' % name))
+        self.__add_node(name, preset='direct', connectgroup=AssetMaker.connectgroup[target_median])
+        self.__write_dcnode_textures(name)
+
 
     def __create_lanes(self, seg, mode, reverse=False):
         if isinstance(seg, csur.TwoWay):
@@ -187,18 +219,32 @@ class AssetMaker:
                                 lane['m_finalDirection'] = 'Forward'
                         self.assetdata[modename]['m_lanes']['Lane'].append(lane)
                     
+    def __get_mediancode(self, asset):
+        if not asset.is_twoway():
+            return 'None'
+        medians = asset.n_central_median()
+        return str(medians[0]) + str(medians[1])
 
-                
-
-    def __write_netAI(self, seg, mode):
+    def __write_netAI(self, asset, mode):
+        seg = asset.get_model(mode)
         modename = AssetMaker.names[mode[0]]
         if mode[0] == 'g':
             self.assetdata['%sAI' % modename]['m_trafficLights'] = 'true'
 
-    def __write_info(self, seg, mode):
+    def __write_info(self, asset, mode):
+        seg = asset.get_model(mode)
         modename = AssetMaker.names[mode[0]]
         info = self.assetdata[modename]
-        info["m_halfWidth"] = "%.3f" % min([max(seg.right.x_start), max(seg.left.x_start)])
+        if type(seg) == csur.TwoWay:
+            info["m_connectGroup"] = AssetMaker.connectgroup[self.__get_mediancode(asset)]
+            halfwidth = min([max(seg.right.x_start), max(seg.left.x_start)])
+            if seg.right.start[-1] == Segment.SIDEWALK:
+                halfwidth -= 1.25
+        else:
+            halfwidth = min([max(seg.x_start), max(seg.x_end)])
+            if seg.start[-1] == Segment.SIDEWALK:
+                halfwidth -= 1.25
+        info["m_halfWidth"] = "%.3f" % halfwidth
 
     def writetoxml(self, asset):
         #path = os.path.join(self.output_path, str(asset.get_model('g')) + '.xml')
@@ -222,14 +268,49 @@ class AssetMaker:
             self.__create_segment(asset, mode)
         # build node
         if asset.is_twoway and asset.roadtype == 'b':
+            n_central_median = asset.n_central_median()
             self.__create_node(asset)
-            self.__create_dcnode(asset, target_median='11')
-            #self.__create_dcnode(asset, target_median='33')
+            if n_central_median[0] == n_central_median[1]:
+                self.__create_dcnode(asset)
+                if n_central_median[0] == 1:
+                    self.__create_dcnode(asset, target_median='33')
+            else:
+                if n_central_median[0] + n_central_median[1] > 0:
+                    self.__create_dcnode(asset)
+                self.__create_dcnode(asset, asym_mode='restore')
+                
+            self.__create_stop(asset, 'g', 'single')
+            self.__create_stop(asset, 'g', 'double')
         # write data
         for mode in modes:
             seg = asset.get_model(mode)
             self.__create_lanes(seg, mode)
-            self.__write_netAI(seg, mode)
-            self.__write_info(seg, mode)
+            self.__write_netAI(asset, mode)
+            self.__write_info(asset, mode)
+        self.writetoxml(asset)
+        return self.assetdata
+
+    def make_singlemode(self, asset, mode):
+        self.__initialize_assetinfo(asset)
+        self.__create_segment(asset, mode)
+        if asset.is_twoway and asset.roadtype == 'b':
+            self.__create_node(asset)
+        seg = asset.get_model(mode)
+        self.__create_lanes(seg, mode)
+        self.__write_netAI(asset, mode)
+        self.__write_info(asset, mode)
+        self.writetoxml(asset)
+        return self.assetdata
+
+
+    def make_brt(self, asset):
+        self.__initialize_assetinfo(asset)
+        self.__create_stop(asset, 'g', 'brt')
+        self.__create_node(asset)
+        #self.__create_brtnode(asset)
+        seg = asset.get_model('g')
+        self.__create_lanes(seg, 'g')
+        self.__write_netAI(asset, 'g')
+        self.__write_info(asset, 'g')
         self.writetoxml(asset)
         return self.assetdata
