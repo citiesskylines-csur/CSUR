@@ -4,6 +4,8 @@ EPS = 1e-6
 
 LANEWIDTH = 3.75
 
+typename = {'b': 'BASE', 's': 'SHIFT', 't': 'TRANS', 'r': 'RAMP'}
+
 '''
 def offset_x(s):
     if s[-1] == 'P':

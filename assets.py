@@ -67,10 +67,25 @@ class Asset():
     def is_twoway(self):
         return False
 
+    def has_sidewalk(self):
+        return Segment.SIDEWALK in self.get_model('g').start
+
+    def has_bikelane(self):
+        return Segment.BIKE in self.get_model('g').start
+
+    def is_roundabout(self):
+        return Segment.WEAVE in self.get_model('g').start
+
+    def has_trafficlight(self):
+        return False
+
     def always_undivided(self):
         return self.xleft[0] == 0 and self.xleft[1] == 0
 
     def get_blocks(self):
+        return self._blocks
+    
+    def get_all_blocks(self):
         return self._blocks
 
     def get_model(self, mode='g'):
@@ -136,6 +151,18 @@ class TwoWayAsset(Asset):
         return sum(x.nlanes for x in self._blocks[0])
 
     def is_twoway(self):
+        return True
+
+    def has_sidewalk(self):
+        return Segment.SIDEWALK in self.right.get_model('g').start
+
+    def has_bikelane(self):
+        return Segment.BIKE in self.right.get_model('g').start
+
+    def is_roundabout(self):
+        return False
+
+    def has_trafficlight(self):
         return True
 
     def n_central_median(self):
