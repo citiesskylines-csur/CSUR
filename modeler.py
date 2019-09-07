@@ -27,7 +27,7 @@ class Modeler:
     SLOPE = 6
     
 
-    def __init__(self, config_file, bridge=False, tunnel=True):
+    def __init__(self, config_file, bridge=False, tunnel=True, lod=False):
         self.config = configparser.ConfigParser()
         self.config.read(config_file)
         # lane_border indicates the width that a lane unit extends at the edge
@@ -40,6 +40,7 @@ class Modeler:
                                     self.config['PATH']['tex'])
         self.bridge = bridge
         self.tunnel = tunnel
+        self.lod = lod
         # road_d is the Default texture map
         self.textures = {'d':{}}
         self.textures['d'][Modeler.NULL] = bpy.data.images.load(
@@ -112,6 +113,11 @@ class Modeler:
                 self.objs['SLOPE'][k] = obj
                 obj.hide_set(True)
 
+        if self.lod:
+            for k in self.objs.keys():
+                for obj in self.objs[k].values():
+                    obj.name += '_lod'
+
     def check_mode(self, mode):
         if mode[0] == 'b' and not self.bridge:
             raise Exception("Bridge mode not loaded!")
@@ -120,6 +126,11 @@ class Modeler:
                 
    
     def __load(self, name, type=NULL, recenter=True):
+        if self.lod:
+            lod_name = ''.join(name.split('.')[:-1] + ['_lod.'] + [name.split('.')[-1]])
+            if os.path.exists(os.path.join(self.config['PATH']['workdir'],
+                            self.config['PATH']['units'], lod_name)):
+                name = lod_name
         path = os.path.join(self.config['PATH']['workdir'],
                             self.config['PATH']['units'],
                             name)
@@ -132,6 +143,23 @@ class Modeler:
         if recenter:
             align(obj.data)
         link_image(obj, self.textures['d'][type])
+        # clean UV, using periodic boundary condition
+        for face in obj.data.polygons:
+            du = dv = 0
+            for il in face.loop_indices:
+                l = obj.data.uv_layers.active.data[il]
+                if du == 0 and l.uv[0] > 1:
+                    du = -int(l.uv[0])
+                elif du == 0 and l.uv[0] < 0:
+                    du = int(l.uv[0]) + 1
+                if dv == 0 and l.uv[1] > 1:
+                    dv = -int(l.uv[1])
+                elif dv == 0 and l.uv[1] < 0:
+                    dv = int(l.uv[1]) + 1
+            for il in face.loop_indices:
+                l = obj.data.uv_layers.active.data[il]
+                l.uv[0] += du
+                l.uv[1] += dv  
         return obj
 
     def save(self, obj, path):
@@ -207,13 +235,18 @@ class Modeler:
                         x_right[i] = min(xs[p + lane_added] + 0.5 * LANEWIDTH,
                                         xs[p + lane_added + 1] - 0.5 * LANEWIDTH)
       
-                    obj = self.objs['LANE']['lane_c']
                     uvflag = int(x_left[1] - x_left[0] != x_right[1] - x_right[0])
                     if j == (nblocks - 2) and centered_trans_offset:
                         x_temp = [max(x_right), max(x_right)]
+                        obj = self.objs['LANE']['lane_c']
                         objs_created.append(place_unit(obj, x_left, x_temp, preserve_uv=uvflag))
                         x_left = x_temp.copy()
                     else:
+                        if (x_left[0] == x_left[1] or x_right[0] == x_right[1]) or (x_left[1] - x_left[0] == x_right[1] - x_right[0]):
+                            obj = self.objs['LANE']['lane_c']
+                        else:
+                            obj = self.objs['LANE']['lane_f']
+                            uvflag = 0
                         objs_created.append(place_unit(obj, x_left, x_right, preserve_uv=uvflag))    
                         x_left = x_right.copy()
                     lane_added += 1
@@ -538,69 +571,70 @@ class Modeler:
         bs = get_dims(self.objs['ELEVATED']['beam_sep'].data)[0]
         bw = get_dims(self.objs['ELEVATED']['beam'].data)[0]
         objs_created = []
-        # make beams
-        w_lanes = max(xs_end[-2] - xs_end[1], xs_start[-2] - xs_start[1])
-        w_beam_max = bs + bw
-        n_beams = int(w_lanes // (w_beam_max)) + 1
-        scale = w_lanes / (w_beam_max * n_beams)
-        beams = []
-        if units[0] == Segment.MEDIAN:
-            xs_0 = [xs_start[1] - mm, xs_end[1] - mm]
-        elif units[0] == Segment.BARRIER:
-            xs_0 = [xs_start[0] + bm, xs_end[0] + bm]
-        elif units[0] == Segment.LANE or units[0] == Segment.CHANNEL:
-            xs_0 = [xs_start[0], xs_end[0]]
-        else:
-            raise ValueError('Cannot make deck model: not an elevated segment! %s', units)
-        xs = [xs_0[0], xs_0[0]]
-        beams.append(place_unit(self.objs['ELEVATED']['beam_sep'], xs,
-                                [xs_start[1] + bs / 2 - lb, xs_start[1] + bs / 2 - lb]
-                            ))
-        xs[0], xs[1] = xs_start[1] + bs / 2 - lb, xs_start[1] + bs / 2 - lb
-        for i in range(n_beams):
-            beams.append(place_unit(self.objs['ELEVATED']['beam'], xs,
-                                [xs[0] + bw, xs[1] + bw]
-                            ))
-            xs[0], xs[1] = xs[0] + bw, xs[1] + bw
-            if i < n_beams - 1:
-                beams.append(place_unit(self.objs['ELEVATED']['beam_sep'], xs,
-                                [xs[0] + bs, xs[1] + bs]
-                            ))
-                xs[0], xs[1] = xs[0] + bs, xs[1] + bs
-        beams.append(place_unit(self.objs['ELEVATED']['beam_sep'], xs,
-                                [xs[0] + bs / 2 + bm + lb, xs[1] + bs / 2 + bm + lb]
-                            ))
-        beam_obj = make_mesh(beams)
-        beam_obj.scale[0] = scale
-        transform_apply(beam_obj, scale=True)
-        align(beam_obj.data, axis=0)
-        objs_created.append(place_unit(beam_obj, xs_0, [xs_start[-1] - bm, xs_end[-1] - bm], copy=False, scale_mode=1))
-        # make bridge deck
-        obj = self.objs['ELEVATED']['deck_h'] if units[0] != Segment.BARRIER else self.objs['ELEVATED']['deck_f']
-        obj_scaled = duplicate(obj)
-        obj_scaled.scale[0] = scale
-        transform_apply(obj_scaled, scale=True)
-        align(obj_scaled.data, axis=0)
-        if units[0] != Segment.BARRIER:
-            objs_created.append(place_unit(obj_scaled, 
-                                [xs_start[0], xs_end[0]],
-                                [xs_start[-1] - dm, xs_end[-1] - dm],
-                                copy=False))
-            objs_created.append(place_unit(self.objs['ELEVATED']['joint'], 
-                                [xs_start[0], xs_end[0]],
-                                [xs_start[-1] - dm, xs_end[-1] - dm],
-                                preserve_uv = -2
+        if not self.lod:
+            # make beams
+            w_lanes = max(xs_end[-2] - xs_end[1], xs_start[-2] - xs_start[1])
+            w_beam_max = bs + bw
+            n_beams = int(w_lanes // (w_beam_max)) + 1
+            scale = w_lanes / (w_beam_max * n_beams)
+            beams = []
+            if units[0] == Segment.MEDIAN:
+                xs_0 = [xs_start[1] - mm, xs_end[1] - mm]
+            elif units[0] == Segment.BARRIER:
+                xs_0 = [xs_start[0] + bm, xs_end[0] + bm]
+            elif units[0] == Segment.LANE or units[0] == Segment.CHANNEL:
+                xs_0 = [xs_start[0], xs_end[0]]
+            else:
+                raise ValueError('Cannot make deck model: not an elevated segment! %s', units)
+            xs = [xs_0[0], xs_0[0]]
+            beams.append(place_unit(self.objs['ELEVATED']['beam_sep'], xs,
+                                    [xs_start[1] + bs / 2 - lb, xs_start[1] + bs / 2 - lb]
                                 ))
-        else:
-            objs_created.append(place_unit(obj_scaled,
-                                [xs_start[0] + dm, xs_end[0] + dm],
-                                [xs_start[-1] - dm, xs_end[-1] - dm],
-                                copy=False))
-            objs_created.append(place_unit(self.objs['ELEVATED']['joint'], 
-                                [xs_start[0] + dm, xs_end[0] + dm],
-                                [xs_start[-1] - dm, xs_end[-1] - dm],
-                                preserve_uv = -2
+            xs[0], xs[1] = xs_start[1] + bs / 2 - lb, xs_start[1] + bs / 2 - lb
+            for i in range(n_beams):
+                beams.append(place_unit(self.objs['ELEVATED']['beam'], xs,
+                                    [xs[0] + bw, xs[1] + bw]
                                 ))
+                xs[0], xs[1] = xs[0] + bw, xs[1] + bw
+                if i < n_beams - 1:
+                    beams.append(place_unit(self.objs['ELEVATED']['beam_sep'], xs,
+                                    [xs[0] + bs, xs[1] + bs]
+                                ))
+                    xs[0], xs[1] = xs[0] + bs, xs[1] + bs
+            beams.append(place_unit(self.objs['ELEVATED']['beam_sep'], xs,
+                                    [xs[0] + bs / 2 + bm + lb, xs[1] + bs / 2 + bm + lb]
+                                ))
+            beam_obj = make_mesh(beams)
+            beam_obj.scale[0] = scale
+            transform_apply(beam_obj, scale=True)
+            align(beam_obj.data, axis=0)
+            objs_created.append(place_unit(beam_obj, xs_0, [xs_start[-1] - bm, xs_end[-1] - bm], copy=False, scale_mode=1))
+            # make bridge deck
+            obj = self.objs['ELEVATED']['deck_h'] if units[0] != Segment.BARRIER else self.objs['ELEVATED']['deck_f']
+            obj_scaled = duplicate(obj)
+            obj_scaled.scale[0] = scale
+            transform_apply(obj_scaled, scale=True)
+            align(obj_scaled.data, axis=0)
+            if units[0] != Segment.BARRIER:
+                objs_created.append(place_unit(obj_scaled, 
+                                    [xs_start[0], xs_end[0]],
+                                    [xs_start[-1] - dm, xs_end[-1] - dm],
+                                    copy=False))
+                objs_created.append(place_unit(self.objs['ELEVATED']['joint'], 
+                                    [xs_start[0], xs_end[0]],
+                                    [xs_start[-1] - dm, xs_end[-1] - dm],
+                                    preserve_uv = -2
+                                    ))
+            else:
+                objs_created.append(place_unit(obj_scaled,
+                                    [xs_start[0] + dm, xs_end[0] + dm],
+                                    [xs_start[-1] - dm, xs_end[-1] - dm],
+                                    copy=False))
+                objs_created.append(place_unit(self.objs['ELEVATED']['joint'], 
+                                    [xs_start[0] + dm, xs_end[0] + dm],
+                                    [xs_start[-1] - dm, xs_end[-1] - dm],
+                                    preserve_uv = -2
+                                    ))
         # add median and barrier
         lb = self.lane_border
         p = 0
@@ -632,14 +666,15 @@ class Modeler:
                                         [xs_start[p] + lb, xs_end[p] + lb], 
                                         [xs_start[p + nblocks], xs_end[p + nblocks]]))
             elif units[p] == Segment.CHANNEL:
-                x0 = [min([xs_start[p] + lb, xs_end[p] + lb])] * 2
-                x1 = [max([xs_start[p+nblocks] - lb, xs_end[p+nblocks] - lb])] * 2
-                obj = duplicate(self.objs['ELEVATED']['gore'])
-                if xs_start[p] == xs_start[p + nblocks]:
-                    objs_created.append(place_unit(obj, x0, x1, copy=False))
-                elif xs_end[p] == xs_end[p + nblocks]:
-                    obj = make_mirror(obj, axis=1, realign=False)
-                    objs_created.append(place_unit(obj, x0, x1, copy=False))              
+                if not self.lod:
+                    x0 = [min([xs_start[p] + lb, xs_end[p] + lb])] * 2
+                    x1 = [max([xs_start[p+nblocks] - lb, xs_end[p+nblocks] - lb])] * 2
+                    obj = duplicate(self.objs['ELEVATED']['gore'])
+                    if xs_start[p] == xs_start[p + nblocks]:
+                        objs_created.append(place_unit(obj, x0, x1, copy=False))
+                    elif xs_end[p] == xs_end[p + nblocks]:
+                        obj = make_mirror(obj, axis=1, realign=False)
+                        objs_created.append(place_unit(obj, x0, x1, copy=False))              
             p += nblocks
         return objs_created
 
@@ -912,6 +947,9 @@ class Modeler:
         # also remove the curb beside the sidewalk
         curb = objs_extra.pop()
         delete(curb)
+        if Segment.BIKE in units:
+            bike = objs_extra.pop()
+            delete(bike)
         objs.extend(objs_extra)
         # build central median separately
         dc_median = seg.x_start[units.index(Segment.LANE)] + LANEWIDTH / 2
@@ -999,3 +1037,47 @@ class Modeler:
             mediancode = '11'
         return node, mediancode
         
+class ModelerLodded(Modeler):
+    def __init__(self, config_file, bridge=False, tunnel=True):
+        super().__init__(config_file, bridge, tunnel, lod=False)
+        self.lodmodeler = Modeler(config_file, bridge, tunnel, lod=True)
+        self.lod_cache = {}
+
+    def save(self, obj, path):
+        lod_model = self.lod_cache[id(obj)]
+        super().save(obj, path)
+        self.lodmodeler.save(lod_model, ''.join(path.split('.')[:-1]) + '_lod.FBX')
+
+    def cachelod(self, model, lod):
+        if type(model) != tuple:
+            model = (model, )
+            lod = (lod, )
+        for m, l in zip(model, lod):
+            self.lod_cache[id(m)] = l
+
+    def make(self, seg, mode='g', busstop=None):
+        model = super().make(seg, mode, busstop)
+        lod = self.lodmodeler.make(seg, mode, busstop)
+        self.cachelod(model, lod)
+        return model
+
+    def make_node(self, seg):
+        model = super().make_node(seg)
+        lod = self.lodmodeler.make_node(seg)
+        self.cachelod(model, lod)
+        return model
+
+    def make_dc_node(self, seg, target_median=None, unprotect_bikelane=True):
+        model = super().make_dc_node(seg, target_median, unprotect_bikelane)
+        lod = self.lodmodeler.make_dc_node(seg, target_median, unprotect_bikelane)
+        self.cachelod(model, lod)
+        return model
+
+    def make_asym_restore_node(self, seg):
+        model = super().make_asym_restore_node(seg)
+        lod = self.lodmodeler.make_asym_restore_node(seg)
+        self.cachelod(model, lod)
+        return model
+
+
+    

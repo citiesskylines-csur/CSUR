@@ -1,7 +1,7 @@
 import os, shutil, json
 import xmlserializer
 from copy import deepcopy
-from modeler import Modeler
+from modeler import ModelerLodded
 import csur
 from csur import Segment
 
@@ -22,7 +22,7 @@ class AssetMaker:
 
     def __init__(self, dir, config_file='csur_blender.ini', texture_path='textures', 
                  template_path='templates', output_path='output', bridge=False, tunnel=True):
-        self.modeler = Modeler(os.path.join(dir, config_file), bridge, tunnel)
+        self.modeler = ModelerLodded(os.path.join(dir, config_file), bridge, tunnel)
         self.output_path = os.path.join(dir, output_path)
         if not os.path.exists(self.output_path):
             os.makedirs(self.output_path)

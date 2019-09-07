@@ -4,6 +4,8 @@ from csur import typename, Segment
 from csur import StandardWidth as SW
 from assets import Asset
 
+EPS = 1e-6
+
 icons = {
     'BASE': [(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)],
     'SHIFT': [(-0.35, -0.43), (0.5, -0.43), (0.35, 0.43), (-0.5, 0.43)],
@@ -45,7 +47,7 @@ def make_axis(canvas, asset, config=CONFIG_GLOBAL, rspace=RSPACE):
     margin = 0.015
     axis_top = 0.2
     axis_bottom = 0.9
-    axis_label_size = 0.054
+    axis_label_size = 0.06
     tick_size = 0.054
     nticks = 15
     axis_start = 1 - rspace - nticks * tick_size
@@ -59,6 +61,25 @@ def make_axis(canvas, asset, config=CONFIG_GLOBAL, rspace=RSPACE):
     for i, b in enumerate(blocks[1]):
         p = int(b.x_left // (SW.LANE / 2))
         colors_top[p : p + b.nlanes*2] = [axiscolor[i % len(axiscolor)]] * b.nlanes*2
+
+    seg = asset.get_model('g')
+    units = [x or y for x, y in zip(seg.start, seg.end)]
+    arrow_starts = []
+    arrow_ends = []
+    for i, u in enumerate(units):
+        if u == Segment.LANE:
+            x0 = axis_start + (seg.x_start[i + 1] + seg.x_start[i]) / SW.LANE * tick_size
+            x1 = axis_start + (seg.x_end[i + 1] + seg.x_end[i]) / SW.LANE * tick_size
+            arrow_starts.append(x0)
+            arrow_ends.append(x1)
+            if seg.x_start[i + 1] == seg.x_start[i]:
+                x0 = x0 - tick_size if x0 < x1 else x0 + tick_size
+            if seg.x_end[i + 1] == seg.x_end[i]:
+                x1 = x1 - tick_size if x1 < x0 else x1 + tick_size
+            canvas.add_line((x0, axis_bottom - tick_size - margin), 
+                            (x1, axis_top + tick_size + margin), 
+                            0.015, Color(1.0), arrow=1)
+    p = 0
     for i in range(nticks):
         left = axis_start + i * tick_size
         canvas.add_rectangle((left, axis_top), (left + tick_size, axis_top + tick_size), 
@@ -70,20 +91,24 @@ def make_axis(canvas, asset, config=CONFIG_GLOBAL, rspace=RSPACE):
                     Color(colors_top[i]), valign=Anchor.BOTTOM, halign=Anchor.CENTER)
             canvas.add_text(str(i // 2), (left, axis_bottom + margin), axis_label_size, 
                     Color(colors_bottom[i]), valign=Anchor.TOP, halign=Anchor.CENTER)
-    
-    seg = asset.get_model('g')
-    units = [x or y for x, y in zip(seg.start, seg.end)]
-    for i, u in enumerate(units):
-        if u == Segment.LANE:
-            x0 = axis_start + (seg.x_start[i + 1] + seg.x_start[i]) / SW.LANE * tick_size
-            x1 = axis_start + (seg.x_end[i + 1] + seg.x_end[i]) / SW.LANE * tick_size
-            if seg.x_start[i + 1] == seg.x_start[i]:
-                x0 = x0 - tick_size if x0 < x1 else x0 + tick_size
-            if seg.x_end[i + 1] == seg.x_end[i]:
-                x1 = x1 - tick_size if x1 < x0 else x1 + tick_size
-            canvas.add_line((x0, axis_bottom - tick_size - margin), 
-                            (x1, axis_top + tick_size + margin), 
-                            0.015, Color(1.0), arrow=1)
+            alpha = 0
+            if p < len(arrow_starts) and left >= min(arrow_starts[p], arrow_ends[p]):
+                p += 1
+            if left - 2 * tick_size > max(arrow_starts[-1], arrow_ends[-1]) + EPS \
+                or left + 2*tick_size < min(arrow_starts[0], arrow_ends[0]) - EPS:
+                alpha = 0.5
+            elif abs(left - 2*tick_size - max(arrow_starts[-1], arrow_ends[-1])) <= EPS \
+                or abs(left + 2*tick_size - min(arrow_starts[0], arrow_ends[0])) <= EPS:
+                alpha = 0.25
+            elif 0 < p < len(arrow_starts):
+                alpha = 0
+            else:
+                alpha = 0.125
+            if alpha > 0:
+                canvas.add_line((left, axis_bottom - tick_size - margin), 
+                            (left, axis_top + tick_size + margin), 
+                            0.015, Color(1.0,a=alpha), arrow=1)
+
 
 def make_sidebar(canvas, asset, config=CONFIG_GLOBAL, lspace=LSPACE/2):
     margin = 0.02
@@ -108,11 +133,7 @@ def make_sidebar(canvas, asset, config=CONFIG_GLOBAL, lspace=LSPACE/2):
     canvas.add_image("img/trafficlight.png", (x, y_cur), width=icon_size, valign=Anchor.MIDDLE, halign=Anchor.CENTER, alpha=alpha)
     y_cur += icon_size + margin
 
-
-
-
-
-def draw(asset):
+def draw(asset, filepath=None):
     roadtype = typename[asset.roadtype]
 
     canvas = Canvas(SIZE, SIZE)
@@ -123,15 +144,19 @@ def draw(asset):
     make_axis(canvas, asset)
     make_sidebar(canvas, asset)
 
-    canvas.save("thumbnails/%s.png" % asset) 
+    if filepath:
+        canvas.save(filepath)
+    else:
+        canvas.save("thumbnails/%s.png" % asset) 
 
 if __name__ == "__main__":
+    #'''
     from builder import Builder
     max_lane = 6
     codes_all = [['1', '2', '2P', '3', '3P', '4', '4P', '5P'],
                     ['2', '3', '4', '4P', '5P', '6P', '7'],
-                    ['3', '4', '6P'],
-                    ['5', '6P'],
+                    ['3', '4', '5P', '6P'],
+                    ['4', '5', '6P'],
                     ['5', '6'],
                     ['6', '7'],
                 ]
@@ -144,3 +169,7 @@ if __name__ == "__main__":
     for asset in asset_list:
         if not asset.is_twoway():
             draw(asset)
+    '''
+    asset = Asset(1.875*3, 2)
+    draw(asset, "example.png")
+    #'''

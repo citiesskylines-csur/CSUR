@@ -174,13 +174,12 @@ class Canvas:
             self.ctx.set_source(color.pattern())
         else:
             self.ctx.set_source(color)
-        self.ctx.fill()
         if arrow:
             self.ctx.move_to(1 + ARROW_PATH[0][0] * width * arrow, ARROW_PATH[0][1] * width * arrow)
             for x, y in ARROW_PATH[1:]:
                 self.ctx.line_to(1 - x * width * arrow, y * width * arrow)
             self.ctx.close_path()
-            self.ctx.fill()
+        self.ctx.fill()
         self.ctx.restore()
         self.ctx.move_to(0, 0)
 
