@@ -70,6 +70,9 @@ class Color:
     def __repr__(self):
         return '<Color: %s>' % str(self)
     
+    def __eq__(self, other): 
+        return self.r == other.r and self.g == other.g and self.b == other.b and self.a == other.a 
+    
     def pattern(self):
         return cairo.SolidPattern(self.r, self.g, self.b, self.a)
 

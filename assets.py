@@ -150,6 +150,12 @@ class TwoWayAsset(Asset):
     def nl(self):
         return sum(x.nlanes for x in self._blocks[0])
 
+    def get_all_blocks(self):
+        # right hand traffic
+        blocks_right = self.right._blocks
+        blocks_left = [[x.mirror() for x in self.left._blocks[1]], [x.mirror() for x in self.left._blocks[0]]]
+        return [blocks_left[0] + blocks_right[0], blocks_left[1] + blocks_right[1]]
+
     def is_twoway(self):
         return True
 
@@ -169,13 +175,26 @@ class TwoWayAsset(Asset):
         if self.roadtype != 'b':
             raise NotImplementedError("central median count only avaiable for base module!")
         return [int(self.left.xleft[0] // SW.MEDIAN), int(self.right.xleft[0] // SW.MEDIAN)]
+    
+    def is_undivided(self):
+        return self.get_model('g').undivided
 
+    def center(self):
+        return [(br[-1].x_right - bl[-1].x_right) / 2 for bl, br in zip(self.left._blocks, self.right._blocks)]
 
     def asym(self):
         return [self.right.nlanes[i][0] - self.left.nlanes[i][0] for i in [0, 1]]
 
     def get_model(self, mode='g'):
-        return TwoWay(self.left.get_model(mode), self.right.get_model(mode), self.append_median)
+        if mode[-1] == 'c':
+            seg = TwoWay(self.left.get_model(mode[0]), self.right.get_model(mode[0]), self.append_median)
+            for u in [seg.left.start, seg.right.start, seg.left.end, seg.right.end]:
+                i = 0
+                while u[i] == Segment.MEDIAN:
+                    u[i] = Segment.CHANNEL
+        else:           
+            seg = TwoWay(self.left.get_model(mode), self.right.get_model(mode), self.append_median)
+        return seg
 
     def __str__(self):
         names = [twoway_reduced_name(x, y) for x, y in zip(self.left._blocks[::-1], self.right._blocks)]

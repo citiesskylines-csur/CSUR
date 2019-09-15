@@ -1,5 +1,10 @@
 import re
 
+'''
+regex string:
+CSUR(-(T|R|S))? ([[1-9]?[0-9]D?(L|S|C|R)[1-9]*P?)+(=|-)?([[1-9]?[0-9]D?(L|S|C|R)[1-9]*P?)*
+'''
+
 EPS = 1e-6
 
 LANEWIDTH = 3.75
@@ -170,12 +175,19 @@ class Segment():
         for i, xs in enumerate([self.x_start, self.x_end]):
             decomposed[i] = [Carriageway(sum(cs[i][l[0]:l[1]]), xs[l[0]]) for l in lanes[i]]
         return decomposed
+
+
+    def reverse(self):
+        return type(self)(self.end, self.start, x_left=[self.x_end[0], self.x_start[0]])
   
     def roadtype(self):
         raise NotImplementedError("Undefined road type!")
 
     def get_typecode(self):
         return typecode(self.roadtype())
+
+    def middle_index(self):
+        return 0
 
     def __str__(self):
         prefix = "CSUR-%s " % self.get_typecode() if self.get_typecode() else "CSUR "
@@ -210,6 +222,9 @@ class Carriageway():
     
     def get_offset(self):
         return (self.x_left + self.x_right) / 2
+
+    def mirror(self):
+        return Carriageway(self.nlanes, -self.x_right)
 
     def suffix(self):
         if self.get_offset() == 0:
@@ -338,13 +353,16 @@ class TwoWay(Segment):
         if self.undivided:
             self.left = TwoWay.clean_undivided(self.left)
             self.right = TwoWay.clean_undivided(self.right)
-        if append_median:
-            center = [(self.right.x_start[0] - self.left.x_end[0]) / 2, 
+        self.center = [(self.right.x_start[0] - self.left.x_end[0]) / 2, 
                         (self.right.x_end[0] - self.left.x_start[0]) / 2]
+        if append_median: 
             if not self.undivided and self.left.x_start[-1] == self.right.x_start[-1] and self.left.x_end[-1] == self.right.x_end[-1]:
-                center = [min(center), min(center)]
-            self.left = TwoWay.create_median(self.left, [-center[1], -center[0]], undivided=self.undivided)
-            self.right = TwoWay.create_median(self.right, center, undivided=self.undivided)
+                self.center = [min(self.center), min(self.center)]
+            self.left = TwoWay.create_median(self.left, [-self.center[1], -self.center[0]], undivided=self.undivided)
+            self.right = TwoWay.create_median(self.right, self.center, undivided=self.undivided)
+    
+    def middle_index(self):
+        return len(self.left.start)
   
     def __str__(self):
         typecode = str(self.left.get_typecode()) + str(self.right.get_typecode())
@@ -429,6 +447,31 @@ class CSURFactory():
         #right side of road
         units.extend(roadside)
         return units, segment_left
+
+    def fill_median(left_seg, right_seg, type_override):
+        p_left = len(left_seg.start) - 1
+        p_right = 0
+        while left_seg.start[p_left] != Segment.LANE and left_seg.end[p_left] != Segment.LANE:
+            p_left -= 1
+        while right_seg.start[p_right] != Segment.LANE and right_seg.end[p_right] != Segment.LANE:
+            p_right += 1
+        n_start = int((right_seg.x_start[p_right] - left_seg.x_start[p_left + 1]) // StandardWidth.MEDIAN)
+        n_end = int((right_seg.x_end[p_right] - left_seg.x_end[p_left + 1]) // StandardWidth.MEDIAN)
+        start_new = left_seg.start[:p_left + 1] + [Segment.MEDIAN] * n_start + \
+                    [Segment.EMPTY] * max(n_end - n_start, 0) + right_seg.start[p_right:]
+        end_new = left_seg.end[:p_left + 1] + [Segment.MEDIAN] * n_end + \
+                    [Segment.EMPTY] * max(n_start - n_end, 0) + right_seg.end[p_right:]
+        if type_override == 'b':
+            segtype = BaseRoad
+        elif type_override == 's':
+            segtype = Shift
+        elif type_override == 't':
+            segtype = Transition
+        elif type_override == 'r':
+            segtype = Ramp
+        else:
+            raise ValueError("Invalid road type!")
+        return segtype(start_new, end_new, x_left=[left_seg.x_start[0], left_seg.x_end[0]])
     
     def __init__(self, mode='e', roadtype='b'):
         self.mode = mode
@@ -468,7 +511,7 @@ class CSURFactory():
         return Transition(start, end, [x0_start, x0_end])
 
     def get_ramp(self, lane_lefts, n_lanes, n_median=[1, 1]):
-        if abs(len(n_lanes[0]) - len(n_lanes[1])) == 2 and lane_lefts[0] == lane_lefts[1]:
+        if abs(len(n_lanes[0]) - len(n_lanes[1])) == 2 and lane_lefts[0] == lane_lefts[1] and sum(n_lanes[0]) > sum(n_lanes[1]):
             # t: which end is the main road
             t = len(n_lanes[0]) > len(n_lanes[1])
             return self.get_access(lane_lefts[0], n_lanes[t][0], n_lanes[1-t][0] + 1, n_lanes[1-t][1], reverse=t)

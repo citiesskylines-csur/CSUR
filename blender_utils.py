@@ -175,6 +175,52 @@ def make_mesh(objs, merge=True, smooth=True):
     return obj
 
 '''
+Cleans the UV mapping of the object into [0, 1].
+Periodic condition of the UV coordinates is assumed.
+To ensure all UV coorainates are within [0, 1], a face 
+should not be unwrapped across the border of the texture images.
+eg., from u=-0.2 to u=0.2.
+If originally the uv coordinates exceeds [0, 1], eg., from u=-0.2 to u=1.8,
+then do not change the UV mapping.
+'''
+def clean_uv(obj):
+    # clean UV, using periodic boundary condition
+    for face in obj.data.polygons:
+        du = dv = 0
+        for il in face.loop_indices:
+            l = obj.data.uv_layers.active.data[il]
+            if du == 0 and l.uv[0] > 1:
+                du = -int(l.uv[0])
+            elif du == 0 and l.uv[0] < 0:
+                du = int(l.uv[0]) + 1
+            if dv == 0 and l.uv[1] > 1:
+                dv = -int(l.uv[1])
+            elif dv == 0 and l.uv[1] < 0:
+                dv = int(l.uv[1]) + 1
+        # check if the uv already exceed [0, 1]
+        uv_dim = [max(obj.data.uv_layers.active.data[il].uv[i] \
+                    for il in face.loop_indices) \
+                 - min(obj.data.uv_layers.active.data[il].uv[i] \
+                    for il in face.loop_indices) \
+                 for i in [0, 1]]
+        for il in face.loop_indices:
+            l = obj.data.uv_layers.active.data[il]
+            if uv_dim[0] <= 1:
+                l.uv[0] += du
+            if uv_dim[1] <= 1:
+                l.uv[1] += dv
+
+'''
+Mirrors the UV coordinates of the object along an axis as 
+(u, v) -> (1-u, v) or (u, v) -> (u, 1-v)
+'''
+def mirror_uv(obj, axis=1):
+    for face in obj.data.polygons:
+        for il in face.loop_indices:
+            l = obj.data.uv_layers.active.data[il]
+            l.uv[axis] = 1 - l.uv[axis]
+
+'''
 Sets the origin of the object to the scene origin.
 '''
 def reset_origin(obj):
@@ -308,8 +354,18 @@ def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=Fa
                 v.co[0] += dx
     return obj
 
-
-
+'''
+put multiple objects together in a row and join them
+'''
+def put_objects(objs):
+    x0 = [0, 0]
+    objs_new = []
+    for o in objs:
+        objs_new.append(place_unit(o, x0, x0, preserve_obj=True))
+        dim = get_dims(o.data)[0]
+        x0[0] += dim
+        x0[1] += dim
+    return make_mesh(objs_new)
   
 
 '''
