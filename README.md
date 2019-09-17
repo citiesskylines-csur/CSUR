@@ -7,4 +7,4 @@ A fully modular road asset framework for Cities: Skylines created by automatic m
 
 The core road module construction mechanisms in the CSUR framework do not require external Python packages, while Blender 2.80 was used to build all 3D meshes and create texture mappings.
 
-CSURフレーム内のコア道路モジュール構造機構は、外部Pythonパックを必要とせず。Blender 2.80は、すべての3 Dグリッドを構築し、テクスチャマッピングを作成するために使用される。
+CSURフレーム内のコア道路モジュール構造機構は、外部Pythonパックを必要とせず。Blender 2.80は、すべての3Dグリッドを構築し、テクスチャマッピングを作成するために使用される。
