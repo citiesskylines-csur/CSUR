@@ -242,9 +242,9 @@ if __name__ == "__main__":
         if not asset.is_twoway():
             draw(asset)
     '''
-    asset2 = Asset(3*1.875, 2)
-    asset = Asset(-1.875, 4)
-    asset = TwoWayAsset(asset2, asset)
+    #asset2 = Asset(3*1.875, 2)
+    asset = Asset(3.75*3, 2)
+    #asset = TwoWayAsset(asset2, asset)
     for mode in [None, 'disabled', 'hovered', 'focused', 'pressed']:
         draw(asset, "C:/Work/roads/CSUR/img/color.ini", "example", mode=mode)
     #'''

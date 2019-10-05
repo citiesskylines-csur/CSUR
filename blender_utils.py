@@ -30,7 +30,10 @@ def align(mesh, axis=0, left=True):
 Links the image texture node of OBJ to Blender image object IMG_BPY.
 '''
 def link_image(obj, img_bpy):
-    obj.material_slots[0].material.node_tree.nodes['Image Texture'].image = img_bpy
+    try:
+        obj.material_slots[0].material.node_tree.nodes['Image Texture'].image = img_bpy
+    except IndexError:
+        print("This object does not have texture: %s" % obj)
 
 '''
 Wrap blender op on active object into a function 
@@ -352,6 +355,19 @@ def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=Fa
                 alpha = v.co[1] / dims[1] + 0.5
                 dx = interpolate(xs_right[0], xs_right[1], alpha, interpolation) - dims[0]
                 v.co[0] += dx
+    return obj
+
+'''
+place the object as a slope along the Y axis 
+starting from z=0 to z=z_end.
+'''
+@selection_safe
+def place_slope(obj, z_end, interpolation='cosine', dim=None):
+    dim = dim or get_dims(obj.data)[1]
+    for v in obj.data.vertices:
+        alpha = v.co[1] / dim + 0.5
+        dz = interpolate(0, z_end, alpha, interpolation)
+        v.co[2] += dz
     return obj
 
 '''

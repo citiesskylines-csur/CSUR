@@ -1,0 +1,36 @@
+{
+    "pillar": {
+        "oneway": [
+            "1532814575.Ama S-1_Data",
+            "1532814575.Ama S-2_Data",
+            "1532814575.Ama S-3_Data",
+            "1532814575.Ama G-3_Data",
+            "1532814575.Ama G-4_Data",
+            "1532814575.Ama G-5_Data",
+            "1532814575.Ama G-5_Data"
+        ],
+    
+        "twoway": [
+            "1532814575.Ama S-2_Data",
+            "1532814575.Ama G-2_Data",
+            "1532814575.Ama G-6DR_Data",
+            "1532814575.Ama G-8DR_Data",
+            "1532814575.Ama G-8DR_Data",
+            "CSUR-F Main 12DR-P.Ama Pillar 12DR_Data",
+            "CSUR-F Main 12DR-P.Ama Pillar 12DR_Data"
+        ]
+    },
+    "light": {
+        "median_gnd": "1826488681.Stainless Avenue Light_Data",
+        "median_elv": "1826488681.Stainless Avenue Light_Data",
+        "side_gnd_small": "1826488681.Reflective Light Double_Data",
+        "side_gnd_large": "1826488681.Reflective Light Single_Data",
+        "side_elv": "1228724586.R69 Expressway Light_Data",
+        "side_tun": ""
+    },
+    "tree": {
+        "side": "943453922.Regular Tree Small _Data",
+        "median": ""
+    }
+
+}

@@ -126,9 +126,10 @@ class Segment():
     CHANNEL = 7
     SHOULDER = 8
     WEAVE = 9
+    PARKING = 10
     
     # width of each building unit
-    widths = [0, LANEWIDTH, LANEWIDTH/2, 2.75, 0.5, 3.75, LANEWIDTH/4, LANEWIDTH/2, LANEWIDTH/2, LANEWIDTH/2]
+    widths = [0, LANEWIDTH, LANEWIDTH/2, 2.75, 0.5, 3.75, LANEWIDTH/4, LANEWIDTH/2, LANEWIDTH/2, LANEWIDTH/2, 2.75]
 
     def get_lane_blocks(config):
         p1 = 0
@@ -408,6 +409,8 @@ class CSURFactory():
                 'ge': [Segment.CURB],
                 # compact ground w/o bike lanes:
                 'gc': [Segment.CURB, Segment.SIDEWALK],
+                # ground road with parking space
+                'gp': [Segment.PARKING, Segment.MEDIAN, Segment.CURB, Segment.SIDEWALK],
                 # expressway
                 'ex': [Segment.SHOULDER, Segment.BARRIER],
                 # elevated 
@@ -511,7 +514,7 @@ class CSURFactory():
         return Transition(start, end, [x0_start, x0_end])
 
     def get_ramp(self, lane_lefts, n_lanes, n_median=[1, 1]):
-        if abs(len(n_lanes[0]) - len(n_lanes[1])) == 2 and lane_lefts[0] == lane_lefts[1] and sum(n_lanes[0]) > sum(n_lanes[1]):
+        if abs(len(n_lanes[0]) - len(n_lanes[1])) == 2 and lane_lefts[0] == lane_lefts[1] and abs(sum(n_lanes[0]) - sum(n_lanes[1])) == 1:
             # t: which end is the main road
             t = len(n_lanes[0]) > len(n_lanes[1])
             return self.get_access(lane_lefts[0], n_lanes[t][0], n_lanes[1-t][0] + 1, n_lanes[1-t][1], reverse=t)

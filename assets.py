@@ -88,6 +88,9 @@ class Asset():
     def get_all_blocks(self):
         return self._blocks
 
+    def get_dim(self):
+        return [block[-1].x_right - block[0].x_left for block in self.get_all_blocks()]
+
     def get_model(self, mode='g'):
         if mode[-1] == 'w':
             fac = CSURFactory(mode=mode[0], roadtype=self.roadtype)

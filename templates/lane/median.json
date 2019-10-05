@@ -1,0 +1,141 @@
+{
+    "m_position": "0",
+    "m_width": "3",
+    "m_verticalOffset": "0",
+    "m_stopOffset": "0",
+    "m_speedLimit": "1",
+    "m_direction": "Both",
+    "m_laneType": "None",
+    "m_vehicleType": "None",
+    "m_stopType": "None",
+    "m_laneProps": {
+        "Prop": [
+            {
+                "m_flagsRequired": "None",
+                "m_flagsForbidden": "Stop",
+                "m_startFlagsRequired": "None",
+                "m_startFlagsForbidden": "None",
+                "m_endFlagsRequired": "None",
+                "m_endFlagsForbidden": "None",
+                "m_colorMode": "Default",
+                "m_prop": "CSUR@LIGHT:MEDIAN_GND",
+                "m_tree": null,
+                "m_position": {
+                    "float": [
+                        "0",
+                        "0",
+                        "0"
+                    ]
+                },
+                "m_angle": "0",
+                "m_segmentOffset": "0",
+                "m_repeatDistance": "30",
+                "m_minLength": "0",
+                "m_cornerAngle": "0",
+                "m_probability": "100"
+            },
+            {
+                "m_flagsRequired": "None",
+                "m_flagsForbidden": "JoinedJunctionInverted",
+                "m_startFlagsRequired": "TrafficLights",
+                "m_startFlagsForbidden": "LevelCrossing",
+                "m_endFlagsRequired": "None",
+                "m_endFlagsForbidden": "None",
+                "m_colorMode": "StartState",
+                "m_prop": "Traffic Light 02 Mirror",
+                "m_tree": null,
+                "m_position": {
+                    "float": [
+                        "-1.5",
+                        "0",
+                        "0"
+                    ]
+                },
+                "m_angle": "-90",
+                "m_segmentOffset": "-1",
+                "m_repeatDistance": "0",
+                "m_minLength": "0",
+                "m_cornerAngle": "0.5",
+                "m_probability": "100"
+            },
+            {
+                "m_flagsRequired": "None",
+                "m_flagsForbidden": "JoinedJunctionInverted",
+                "m_startFlagsRequired": "None",
+                "m_startFlagsForbidden": "None",
+                "m_endFlagsRequired": "TrafficLights",
+                "m_endFlagsForbidden": "LevelCrossing",
+                "m_colorMode": "EndState",
+                "m_prop": "Traffic Light 02 Mirror",
+                "m_tree": null,
+                "m_position": {
+                    "float": [
+                        "-1.5",
+                        "0",
+                        "0"
+                    ]
+                },
+                "m_angle": "-90",
+                "m_segmentOffset": "1",
+                "m_repeatDistance": "0",
+                "m_minLength": "0",
+                "m_cornerAngle": "0",
+                "m_probability": "100"
+            },
+            {
+                "m_flagsRequired": "None",
+                "m_flagsForbidden": "JoinedJunctionInverted",
+                "m_startFlagsRequired": "None",
+                "m_startFlagsForbidden": "None",
+                "m_endFlagsRequired": "TrafficLights",
+                "m_endFlagsForbidden": "LevelCrossing",
+                "m_colorMode": "EndState",
+                "m_prop": "Traffic Light 02 Mirror",
+                "m_tree": null,
+                "m_position": {
+                    "float": [
+                        "1.5",
+                        "0",
+                        "0"
+                    ]
+                },
+                "m_angle": "90",
+                "m_segmentOffset": "1",
+                "m_repeatDistance": "0",
+                "m_minLength": "0",
+                "m_cornerAngle": "0.5",
+                "m_probability": "100"
+            },
+            
+            {
+                "m_flagsRequired": "None",
+                "m_flagsForbidden": "JoinedJunctionInverted",
+                "m_startFlagsRequired": "TrafficLights",
+                "m_startFlagsForbidden": "LevelCrossing",
+                "m_endFlagsRequired": "None",
+                "m_endFlagsForbidden": "None",
+                "m_colorMode": "StartState",
+                "m_prop": "Traffic Light 02 Mirror",
+                "m_tree": null,
+                "m_position": {
+                    "float": [
+                        "1.5",
+                        "0",
+                        "0"
+                    ]
+                },
+                "m_angle": "90",
+                "m_segmentOffset": "-1",
+                "m_repeatDistance": "0",
+                "m_minLength": "0",
+                "m_cornerAngle": "0.5",
+                "m_probability": "100"
+            }
+        ]
+    },
+    "m_allowConnect": "true",
+    "m_useTerrainHeight": "false",
+    "m_centerPlatform": "false",
+    "m_elevated": "false",
+    "m_finalDirection": "Both"
+}

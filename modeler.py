@@ -140,7 +140,7 @@ class Modeler:
             align(obj.data)
         link_image(obj, self.textures['d'][type])
         clean_uv(obj)
-        mirror_uv(obj)
+        #mirror_uv(obj)
         if objectname:
             obj.name = objectname
         return obj
@@ -493,9 +493,20 @@ class Modeler:
                     objs_created.append(place_unit(obj, 
                                         [xs_start[p] + lb, xs_end[p] + lb], 
                                         [xs_start[p + nblocks], xs_end[p + nblocks]]))
+            elif units[p] == Segment.CHANNEL:
+                dx = float(self.config['PARAM']['tunnel_bevel'])
+                obj = duplicate(self.objs['TUNNEL']['gore'])
+                if xs_start[p] == xs_start[p + nblocks]:
+                    x0 = [xs_end[p] + lb - dx] * 2
+                    x1 = [xs_end[p+nblocks] - lb + dx] * 2
+                    objs_created.append(place_unit(obj, x0, x1, copy=False))
+                elif xs_end[p] == xs_end[p + nblocks]:
+                    x0 = [xs_start[p] + lb - dx] * 2
+                    x1 = [xs_start[p+nblocks] - lb + dx] * 2
+                    obj = make_mirror(obj, axis=1, realign=False, copy=False)
+                    objs_created.append(place_unit(obj, x0, x1, copy=False))           
             
             p += nblocks
-        
         p = 0
         while units[p] in [Segment.MEDIAN, Segment.BARRIER]:
             p += 1
@@ -507,7 +518,7 @@ class Modeler:
         objs_created = []
         lb = self.lane_border
         p = 0
-        seam = float(self.config['PARAM']['slope_median_seam'])
+        seam = float(self.config['PARAM']['slope_median_seam']) if not self.lod else 0
         while p < len(units):
             nblocks = 1
             while p + nblocks < len(units) and (units[p + nblocks] == units[p] \
@@ -782,6 +793,27 @@ class Modeler:
         return lanes_f, lanes_r, struc
         
 
+    def make_arrows(self, seg):
+        if isinstance(seg, csur.TwoWay):
+            arrow_f = Modeler.make_arrows(self, seg.right)
+            arrow_r = Modeler.make_arrows(self, seg.left)
+            arrow_r.rotation_euler[2] = 3.1415926536
+            arrows = make_mesh([arrow_f, arrow_r])
+        else:
+            p = 0
+            units = [x or y for x, y in zip(seg.start, seg.end)]
+            xs_start, xs_end = seg.x_start, seg.x_end
+            arrows = []
+            for i, u in enumerate(units):
+                if u == Segment.LANE:
+                    arrows.append(place_unit(self.objs['TUNNEL']['arrow'], 
+                                            [xs_start[i], xs_end[i]], 
+                                            [xs_start[i + 1], xs_end[i + 1]]))
+            arrows = make_mesh(arrows)
+            reset_origin(arrows)
+        arrows.name = str(seg) + 'tunnel_arrows'
+        return arrows
+        
  
     '''
     Note on bus stop configuration:
@@ -851,7 +883,10 @@ class Modeler:
         return make_mesh([lanes, struc])
 
 
-    def make_node(self, seg):
+    # TODO: separate sidewalk and asphalt in the pavement
+    # TODO: create two pavements, the no-crossing one is 
+    # used for compatibility and DC nodes
+    def make_node(self, seg, compatibility=False):
         deselect()
         margin = 0.1
         if isinstance(seg, csur.TwoWay):
@@ -861,8 +896,8 @@ class Modeler:
             stopline = place_unit(self.objs['NODE']['stop_line'], 
                         [seg.right.start[p], seg.right.end[p]], 
                         [seg.right.x_start[-3], seg.right.x_end[-3]])
-            pavement_l, junction_l = self.make_node(seg.left)
-            pavement_r, junction_r = self.make_node(seg.right)
+            pavement_l, junction_l = Modeler.make_node(self, seg.left, compatibility)
+            pavement_r, junction_r = Modeler.make_node(self, seg.right, compatibility)
             # if the node is asymmetric then recenter the end of the node
             # use halfcosine interpolation so two consecutive nodes can align
             if seg.left.start != seg.right.start:
@@ -875,14 +910,18 @@ class Modeler:
             junction_l = make_mirror(junction_l, copy=False, realign=False)
             pavement = make_mesh([pavement_l, pavement_r])
             junction = make_mesh([junction_l, junction_r, stopline])
-            pavement.name = str(seg) + "_node_pavement"
-            junction.name = str(seg) + "_node_junction"
+            if compatibility:
+                pavement.name = str(seg) + "_cpnode_pavement"
+                junction.name = str(seg) + "_cpnode_junction"
+            else:
+                pavement.name = str(seg) + "_node_pavement"
+                junction.name = str(seg) + "_node_junction"
             return pavement, junction
         lb = self.lane_border
         pavement = []
         junction = []
         if seg.roadtype() != "b":
-            raise ValueError("Node is only valid for base module!")
+            raise NotImplementedError("Node is only valid for base module!")
         else:
             units = [x or y for x, y in zip(seg.start, seg.end)]
             xs_start, xs_end = seg.x_start, seg.x_end
@@ -903,7 +942,11 @@ class Modeler:
                     junction.append(place_unit(obj, [xs_start[p] + lb + margin, xs_end[p] + lb + margin],
                                     [xs_start[p + nblocks] - lb - margin, xs_end[p + nblocks] - lb - margin], scale_mode=0))
             elif units[p] == Segment.SIDEWALK:
-                obj = self.objs['NODE']['sidewalk']
+                if compatibility:
+                    key = 'sidewalk2'
+                else:
+                    key = 'sidewalk'
+                obj = self.objs['NODE'][key]
                 if p == 0:
                     obj = make_mirror(obj, axis=0)
                     pavement.append(place_unit(obj, 
@@ -922,8 +965,15 @@ class Modeler:
         reset_origin(pavement)
         junction = make_mesh(junction)
         reset_origin(junction)
-        pavement.name = str(seg) + "_node_pavement"
-        junction.name = str(seg) + "_node_junction"
+        # make compatibility nodes to connect vanilla roads
+        if compatibility:
+            place_slope(pavement, -0.3, dim=64)
+            place_slope(junction, -0.3, dim=64)
+            pavement.name = str(seg) + "_cpnode_pavement"
+            junction.name = str(seg) + "_cpnode_junction"
+        else:
+            pavement.name = str(seg) + "_node_pavement"
+            junction.name = str(seg) + "_node_junction"
         return pavement, junction
 
     def __get_dc_components(self, seg, divide_line=False, keep_all=False, unprotect_bikelane=True, central_channel=False):
@@ -966,26 +1016,34 @@ class Modeler:
     # hetrogeneous direct connect rule: narrow -> wide
     def make_dc_node(self, seg, target_median=None, unprotect_bikelane=True):
         self.check_dcnode(seg)
-        print('dcnode:', seg)
-        median_f, lanes_f, = self.__get_dc_components(seg.right, divide_line=True, unprotect_bikelane=unprotect_bikelane)
-        median_r, lanes_r, = self.__get_dc_components(seg.left, unprotect_bikelane=unprotect_bikelane)
-        for x in [median_r, lanes_r]:
-            x.rotation_euler[2] = 3.141592654
-        median = make_mesh([median_f, median_r])
-        lanes = make_mesh([lanes_f, lanes_r])
         my_median = [-seg.left.x_start[seg.left.start.index(Segment.LANE)],
                       seg.right.x_start[seg.right.start.index(Segment.LANE)]]
         target_median = target_median or my_median
-        if my_median != [0, 0]:
-            align(median.data)
-            median = place_unit(median, [my_median[0] - LANEWIDTH/2, target_median[0] - LANEWIDTH/2],
-                                        [my_median[1] + LANEWIDTH/2, target_median[1] + LANEWIDTH/2],
-                                        copy=False)
-        # prevent z-fighting
-        median.location[2] = 0.005
-        transform_apply(median, location=True)
-       
-        dcnode = make_mesh([median, lanes])
+
+        # when the road is divided or is the median of DC node does not change
+        if target_median is my_median or my_median[0] != my_median[1]:
+            median_f, lanes_f, = self.__get_dc_components(seg.right, divide_line=True, unprotect_bikelane=unprotect_bikelane)
+            median_r, lanes_r, = self.__get_dc_components(seg.left, unprotect_bikelane=unprotect_bikelane)
+            for x in [median_r, lanes_r]:
+                x.rotation_euler[2] = 3.141592654
+            median = make_mesh([median_f, median_r])
+            lanes = make_mesh([lanes_f, lanes_r])
+            if my_median[0] != my_median[1]:
+                align(median.data)
+                median = place_unit(median, [my_median[0] - LANEWIDTH/2, target_median[0] - LANEWIDTH/2],
+                                            [my_median[1] + LANEWIDTH/2, target_median[1] + LANEWIDTH/2],
+                                            copy=False)
+                # prevent z-fighting
+                median.location[2] = 0.005
+                transform_apply(median, location=True)
+            dcnode = make_mesh([median, lanes])
+        # when the road is undivided, must create another segment from factory
+        else:
+            mode = 'g'
+            blocks_f, blocks_r = seg.right.decompose(), seg.left.decompose()
+            dcnode_rev = CSURFactory(mode=mode, roadtype='s').get([-my_median[0], -target_median[0]], blocks_f[0].nlanes)
+            dcnode_fwd = CSURFactory(mode=mode, roadtype='s').get([target_median[1], my_median[1]], blocks_f[0].nlanes)
+            dcnode = Modeler.convert_to_dcnode(self, csur.TwoWay(dcnode_rev, dcnode_fwd))            
         dcnode.name = str(seg) + "_dcnode"
         return dcnode
 
@@ -1001,7 +1059,7 @@ class Modeler:
         #assert False
         node = make_mesh([median_f, lanes_f, median_r, lanes_r])
         transform_apply(node, rotation=True)
-        mirror_uv(node)
+        #mirror_uv(node)
         return node
 
     # DC node which restores the symmetry using the side with fewer lanes
@@ -1014,7 +1072,7 @@ class Modeler:
         if not seg.undivided:
             med = max(seg.left.x_start[seg.left.start.index(Segment.LANE)], seg.right.x_start[seg.right.start.index(Segment.LANE)])
             mediancode = str(int(med // (LANEWIDTH / 2))) * 2
-            node = self.make_dc_node(seg, target_median=[-med, med], unprotect_bikelane=False)
+            node = Modeler.make_dc_node(self, seg, target_median=[-med, med], unprotect_bikelane=False)
             node = make_mirror(node, copy=False, realign=False)
         else:
             blocks_f, blocks_r = seg.right.decompose(), seg.left.decompose()
@@ -1023,7 +1081,7 @@ class Modeler:
                                     [blocks_r[0].x_left, blocks_f[0].x_left], 
                                     [blocks_r[0].nlanes, blocks_f[0].nlanes],
                                 left=(blocks_f[0].x_left!=blocks_r[0].x_left))
-            node = self.convert_to_dcnode(csur.TwoWay(dcnode_rev, dcnode_fwd))
+            node = Modeler.convert_to_dcnode(self, csur.TwoWay(dcnode_rev, dcnode_fwd))
             node.name = str(seg) + 'restore_node'
             mediancode = '11'
         return node, mediancode
@@ -1055,7 +1113,7 @@ class Modeler:
                                         [blocks_r[0].nlanes, blocks_f[0].nlanes],
                                     left=True)
                 dcnode_rev = dcnode_fwd
-            asym_forward_node = self.convert_to_dcnode(csur.TwoWay(dcnode_rev, dcnode_fwd), keep_bikelane=True)
+            asym_forward_node = Modeler.convert_to_dcnode(self, csur.TwoWay(dcnode_rev, dcnode_fwd), keep_bikelane=True)
             new_median = [blocks_f[0].x_left] * 2
         else:
             # for the divided with 1L median case, we first lay down the road surface entirely using lanes
@@ -1112,15 +1170,21 @@ class ModelerLodded(Modeler):
         for m, l in zip(model, lod):
             self.lod_cache[id(m)] = l
 
+    def make_arrows(self, seg):
+        model = super().make_arrows(seg)
+        lod = self.lodmodeler.make_arrows(seg)
+        self.cachelod(model, lod)
+        return model
+
     def make(self, seg, mode='g', busstop=None):
         model = super().make(seg, mode, busstop)
         lod = self.lodmodeler.make(seg, mode, busstop)
         self.cachelod(model, lod)
         return model
 
-    def make_node(self, seg):
-        model = super().make_node(seg)
-        lod = self.lodmodeler.make_node(seg)
+    def make_node(self, seg, compatibility=False):
+        model = super().make_node(seg, compatibility)
+        lod = self.lodmodeler.make_node(seg, compatibility)
         self.cachelod(model, lod)
         return model
 
@@ -1132,6 +1196,7 @@ class ModelerLodded(Modeler):
 
     def make_asym_restore_node(self, seg):
         model = super().make_asym_restore_node(seg)
+        deselect()
         lod = self.lodmodeler.make_asym_restore_node(seg)
         self.cachelod(model, lod)
         return model

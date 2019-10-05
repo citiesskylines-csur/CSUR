@@ -1,0 +1,46 @@
+{
+	"m_halfWidth": "32",
+	"m_pavementWidth": "2.75",
+	"m_segmentLength": "64",
+	"m_minHeight": "0",
+	"m_maxHeight": "5",
+	"m_maxSlope": "0.25",
+	"m_maxBuildAngle": "180",
+	"m_maxTurnAngle": "75",
+	"m_minCornerOffset": "15",
+	"m_maxCornerOffset": "0",
+	"m_buildHeight": "0.01",
+	"m_surfaceLevel": "0",
+	"m_terrainStartOffset": "0",
+	"m_terrainEndOffset": "0",
+	"m_createPavement": "true",
+	"m_createGravel": "false",
+	"m_createRuining": "false",
+	"m_flattenTerrain": "true",
+	"m_lowerTerrain": "false",
+	"m_clipTerrain": "true",
+	"m_followTerrain": "false",
+	"m_flatJunctions": "true",
+	"m_clipSegmentEnds": "true",
+	"m_twistSegmentEnds": "false",
+	"m_straightSegmentEnds": "false",
+	"m_enableBendingSegments": "false",
+	"m_enableBendingNodes": "true",
+	"m_enableMiddleNodes": "true",
+	"m_requireContinuous": "false",
+	"m_canCrossLanes": "true",
+	"m_canCollide": "true",
+	"m_blockWater": "false",
+	"m_autoRemove": "false",
+	"m_overlayVisible": "true",
+	"m_connectGroup": "WideTram",
+	"m_lanes": {
+		"Lane": []
+	},
+	"m_segments": {
+		"Segment": []
+	},
+	"m_nodes": {
+		"Node": []
+	}
+}

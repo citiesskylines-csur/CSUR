@@ -1,0 +1,51 @@
+{
+	"default": {
+		"m_flagsRequired": "None", 
+		"m_flagsForbidden": "Transition", 
+		"m_connectGroup": "None", 
+		"m_directConnect": "false", 
+		"m_emptyTransparent": "false"
+	},
+	"transition": {
+		"m_flagsRequired": "Transition", 
+		"m_flagsForbidden": "None", 
+		"m_connectGroup": "None", 
+		"m_directConnect": "false", 
+		"m_emptyTransparent": "false"
+	},
+	"end": {
+		"m_flagsRequired": "End", 
+		"m_flagsForbidden": "None", 
+		"m_connectGroup": "None", 
+		"m_directConnect": "false", 
+		"m_emptyTransparent": "false"
+	},
+	"trafficlight": {
+		"m_flagsRequired": "TrafficLights", 
+		"m_flagsForbidden": "None", 
+		"m_connectGroup": "None", 
+		"m_directConnect": "false", 
+		"m_emptyTransparent": "false"
+	},
+	"direct": {
+		"m_flagsRequired": "None", 
+		"m_flagsForbidden": "TrafficLights Bend", 
+		"m_connectGroup": "DoubleTrain", 
+		"m_directConnect": "true", 
+		"m_emptyTransparent": "false"
+	},
+	"nojunction": {
+		"m_flagsRequired": "None", 
+		"m_flagsForbidden": "Junction", 
+		"m_connectGroup": "None", 
+		"m_directConnect": "false", 
+		"m_emptyTransparent": "false"
+	},
+	"junction": {
+		"m_flagsRequired": "Junction", 
+		"m_flagsForbidden": "None", 
+		"m_connectGroup": "None", 
+		"m_directConnect": "false", 
+		"m_emptyTransparent": "false"
+	}
+}

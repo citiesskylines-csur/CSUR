@@ -1,0 +1,74 @@
+{
+    "default": {
+        "m_forwardRequired": "None", 
+        "m_forwardForbidden": "StopBoth", 
+        "m_backwardRequired": "None", 
+        "m_backwardForbidden": "StopBoth", 
+        "m_emptyTransparent": "false", 
+        "m_disableBendNodes": "false"
+    },
+    "default_asym": {
+        "m_forwardRequired": "None", 
+        "m_forwardForbidden": "Invert AsymForward AsymBackward", 
+        "m_backwardRequired": "Invert", 
+        "m_backwardForbidden": "AsymForward AsymBackward", 
+        "m_emptyTransparent": "false", 
+        "m_disableBendNodes": "false"
+    }  ,
+    "default_noncentered": {
+        "m_forwardRequired": "None", 
+        "m_forwardForbidden": "Invert", 
+        "m_backwardRequired": "None", 
+        "m_backwardForbidden": "None", 
+        "m_emptyTransparent": "false", 
+        "m_disableBendNodes": "false"
+    },
+    "stopignored": {
+        "m_forwardRequired": "None", 
+        "m_forwardForbidden": "None", 
+        "m_backwardRequired": "None", 
+        "m_backwardForbidden": "None", 
+        "m_emptyTransparent": "false", 
+        "m_disableBendNodes": "false"
+    },
+    "stopsingle": {
+        "m_forwardRequired": "StopRight", 
+        "m_forwardForbidden": "StopLeft", 
+        "m_backwardRequired": "StopLeft", 
+        "m_backwardForbidden": "StopRight", 
+        "m_emptyTransparent": "false", 
+        "m_disableBendNodes": "false"
+    },
+    "stopdouble": {
+        "m_forwardRequired": "StopBoth", 
+        "m_forwardForbidden": "None", 
+        "m_backwardRequired": "StopBoth", 
+        "m_backwardForbidden": "None", 
+        "m_emptyTransparent": "false", 
+        "m_disableBendNodes": "false"
+    },
+    "stopeither": {
+        "m_forwardRequired": "StopRight", 
+        "m_forwardForbidden": "None", 
+        "m_backwardRequired": "StopLeft", 
+        "m_backwardForbidden": "None", 
+        "m_emptyTransparent": "false", 
+        "m_disableBendNodes": "false"
+    },
+    "asymforward": {
+        "m_forwardRequired": "Bend AsymForward", 
+        "m_forwardForbidden": "None", 
+        "m_backwardRequired": "Bend AsymForward", 
+        "m_backwardForbidden": "None", 
+        "m_emptyTransparent": "false", 
+        "m_disableBendNodes": "false"
+    },
+    "asymbackward": {
+        "m_forwardRequired": "Bend AsymBackward", 
+        "m_forwardForbidden": "None", 
+        "m_backwardRequired": "Bend AsymBackward", 
+        "m_backwardForbidden": "None", 
+        "m_emptyTransparent": "false", 
+        "m_disableBendNodes": "false"
+    }
+}
