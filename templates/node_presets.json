@@ -27,6 +27,13 @@
 		"m_directConnect": "false", 
 		"m_emptyTransparent": "false"
 	},
+	"notrafficlight_nt": {
+		"m_flagsRequired": "None", 
+		"m_flagsForbidden": "TrafficLights Transition", 
+		"m_connectGroup": "None", 
+		"m_directConnect": "false", 
+		"m_emptyTransparent": "false"
+	},
 	"direct": {
 		"m_flagsRequired": "None", 
 		"m_flagsForbidden": "TrafficLights Bend", 
@@ -41,9 +48,16 @@
 		"m_directConnect": "false", 
 		"m_emptyTransparent": "false"
 	},
-	"junction": {
-		"m_flagsRequired": "Junction", 
+	"trafficlight_t": {
+		"m_flagsRequired": "TrafficLights Transition", 
 		"m_flagsForbidden": "None", 
+		"m_connectGroup": "None", 
+		"m_directConnect": "false", 
+		"m_emptyTransparent": "false"
+	},
+	"trafficlight_nt": {
+		"m_flagsRequired": "TrafficLights", 
+		"m_flagsForbidden": "Transition", 
 		"m_connectGroup": "None", 
 		"m_directConnect": "false", 
 		"m_emptyTransparent": "false"

@@ -99,13 +99,16 @@ def twoway_reduced_name(block_l, block_r):
         l, r = block_l_copy.pop(0), block_r_copy.pop(0)
         if l.x_left + r.x_left == 0:
             centered = Carriageway(l.nlanes + r.nlanes, -l.x_right)
-            symm = "D" if l.x_right == r.x_right else "A"
-            reduced.append("%d%s%s" % (centered.nlanes, symm, centered.suffix()))
+            if r.x_left == 0 and r.nlanes - l.nlanes == 1:
+                suffix = 'S'
+            else:
+                suffix = centered.suffix()
+            reduced.append("%dD%s" % (centered.nlanes, suffix))
             i += 1
         elif str(l) == str(r):       
             reduced.append("%dD%s" % (2 * l.nlanes, l.suffix()))
             i += 1
-    name_l = [str(x) for x in block_l[::-1][i:]]
+    name_l = [str(x) for x in block_l[i:]]
     name_r = [str(x) for x in block_r[i:]]
     if not reduced:
         reduced = [DIRECTION_SEPERATOR]
@@ -129,7 +132,17 @@ class Segment():
     PARKING = 10
     
     # width of each building unit
-    widths = [0, LANEWIDTH, LANEWIDTH/2, 2.75, 0.5, 3.75, LANEWIDTH/4, LANEWIDTH/2, LANEWIDTH/2, LANEWIDTH/2, 2.75]
+    widths = [0, 
+              LANEWIDTH, 
+              LANEWIDTH/2, 
+              2.75, 
+              0.5, 
+              3.75, 
+              LANEWIDTH/4, 
+              LANEWIDTH/2, 
+              LANEWIDTH/2, 
+              LANEWIDTH/2, 
+              2.75]
 
     def get_lane_blocks(config):
         p1 = 0
@@ -205,7 +218,9 @@ class StandardWidth:
     SIDEWALK = Segment.widths[Segment.SIDEWALK]
     BARRIER = Segment.widths[Segment.BARRIER]
     CHANNEL = Segment.widths[Segment.CHANNEL]
-
+    SHOULDER = Segment.widths[Segment.SHOULDER]
+    WEAVE = Segment.widths[Segment.WEAVE]
+    PARKING = Segment.widths[Segment.PARKING]
 
 class Carriageway():
     width = Segment.widths[Segment.LANE]
@@ -399,18 +414,24 @@ class Shift(Segment):
 class CSURFactory():
     '''
     Mode:
-    g - ground
+    g - ground, e - elevated, b - bridge, s - slope, t - tunnel
     ge - ground express lane
+    ge - ground compact, w/o bike lanes and sidewalk
+    gp - ground parking, w/o bike lanes
+    ex - elevated expressway, has a sholder of 0.5L wide
+    
     '''
     roadside = {
                 # standard ground road
                 'g': [Segment.MEDIAN, Segment.BIKE, Segment.CURB, Segment.SIDEWALK],
+                # standard road with weaving sections
+                'gw': [Segment.MEDIAN, Segment.BIKE, Segment.CURB, Segment.SIDEWALK],
                 # ground express lanes
                 'ge': [Segment.CURB],
                 # compact ground w/o bike lanes:
                 'gc': [Segment.CURB, Segment.SIDEWALK],
                 # ground road with parking space
-                'gp': [Segment.PARKING, Segment.MEDIAN, Segment.CURB, Segment.SIDEWALK],
+                'gp': [Segment.PARKING, Segment.CURB, Segment.SIDEWALK],
                 # expressway
                 'ex': [Segment.SHOULDER, Segment.BARRIER],
                 # elevated 
@@ -422,7 +443,8 @@ class CSURFactory():
                 # tunnel
                 't': [Segment.BARRIER],  
                }
-    road_in = {'g': Segment.CURB, 'ge': Segment.CURB, 'e': Segment.BARRIER, 
+    road_in = {'g': Segment.CURB, 'ge': Segment.CURB, 'e': Segment.BARRIER,
+               'gp': Segment.CURB, 'gc': Segment.CURB, 'gw': Segment.CURB,
                 'b': Segment.BARRIER, 'ex': Segment.BARRIER,
                 's': Segment.BARRIER, 't': Segment.BARRIER}
     

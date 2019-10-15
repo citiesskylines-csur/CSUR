@@ -244,6 +244,7 @@ class Builder:
                     undivided_base.append(r)
         # remove all local-express undivided segments
         # we can always build them using two base segments
+        # TODO: still keep the BRT-related segments with 2DC inside
         for l in self.comp:
             ntot = len(l.copy())
             for i, r in enumerate(l.copy()[::-1]):
@@ -256,10 +257,12 @@ class Builder:
                 if r2.nl() - r1.nl() == 1:
                     self.twoway.append(TwoWayAsset(r1, r2))
 
-        # make base segments with more than 1 lane and less than 1.5u median two-way
-        for r in flatten(self.base[1:]):
-            if r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE:
+        for r in flatten(self.base):
+            # make base segments less than 1.5u median two-way
+            # make other > 2 lanes also twoway:
+            if r.nl() > 1 or r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE:
                 self.twoway.append(TwoWayAsset(r, r))
+            
             
         # make comp segments with more than 4 lanes two-way
         for r in flatten(self.comp[3:]):
@@ -296,7 +299,24 @@ class Builder:
                             self.twoway.append(r_t)
                         else:
                             self.twoway.append(TwoWayAsset(r2, r1))
-        
+
+    def _find_asym(self):
+        # asym (2n+1)DC
+        for i in range(1, self.MAX_UNDIVIDED):
+            l = BaseAsset(SW.MEDIAN, i)
+            r = BaseAsset(-SW.MEDIAN, i + 1)
+            self.twoway.append(TwoWayAsset(l, r))
+        # asym (n-1)Rn-nR
+        for i in range(1, self.max_lane):
+            l = BaseAsset(3 * SW.MEDIAN, i)
+            r = BaseAsset(SW.MEDIAN, i + 1)
+            self.twoway.append(TwoWayAsset(l, r))
+
+        # asym (n-1)Rn-(n+1)Rn
+        for i in range(1, self.max_lane):
+            l = BaseAsset(3 * SW.MEDIAN, i)
+            r = BaseAsset(-SW.MEDIAN, i + 2)
+            self.twoway.append(TwoWayAsset(l, r))
 
     def build(self, twoway=True):
         self._find_comp()
@@ -305,6 +325,7 @@ class Builder:
         self._find_ramp()
         if twoway:
             self._find_twoway()
+            self._find_asym()
         self.built = True
         return self
 

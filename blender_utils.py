@@ -72,7 +72,7 @@ def delete(obj):
 Approximate equal operator to prevent truncation error.
 EQ for scaler values and DEQ for vector distances.
 '''
-EPS = 2e-4
+EPS = 1e-3
 eq = lambda x, y: abs(x - y) < EPS
 deq = lambda x, y: (x - y).length_squared < EPS ** 2
 

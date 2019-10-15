@@ -73,6 +73,9 @@ class Asset():
     def has_bikelane(self):
         return Segment.BIKE in self.get_model('g').start
 
+    def has_busstop(self):
+        return False
+
     def is_roundabout(self):
         return Segment.WEAVE in self.get_model('g').start
 
@@ -172,7 +175,10 @@ class TwoWayAsset(Asset):
         return False
 
     def has_trafficlight(self):
-        return True
+        return self.roadtype == 'b'
+    
+    def has_busstop(self):
+        return str(self.left) == str(self.right)
 
     def n_central_median(self):
         if self.roadtype != 'b':
@@ -189,7 +195,7 @@ class TwoWayAsset(Asset):
         return [self.right.nlanes[i][0] - self.left.nlanes[i][0] for i in [0, 1]]
 
     def get_model(self, mode='g'):
-        if mode[-1] == 'c':
+        if mode[-1] == 'u':
             seg = TwoWay(self.left.get_model(mode[0]), self.right.get_model(mode[0]), self.append_median)
             for u in [seg.left.start, seg.right.start, seg.left.end, seg.right.end]:
                 i = 0

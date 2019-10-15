@@ -90,7 +90,7 @@
                 "m_endFlagsRequired": "None",
                 "m_endFlagsForbidden": "None",
                 "m_colorMode": "Default",
-                "m_prop": "CSUR@LIGHT:SIDE_GND",
+                "m_prop": "CSUR@LIGHT:SIDE",
                 "m_tree": null,
                 "m_position": {
                     "float": [

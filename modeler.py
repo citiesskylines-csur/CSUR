@@ -219,7 +219,6 @@ class Modeler:
                                         xs[p + lane_added + 1] - 0.5 * LANEWIDTH)
                         # besides, the right boundary should not cross the left boundary
                         x_right[i] = max(x_right[i], x_left[i])
-                    print(x_left, x_right)
                     uvflag = int(x_left[1] - x_left[0] != x_right[1] - x_right[0])
                     if j == (nblocks - 2) and centered_trans_offset:
                         x_temp = [max(x_right), max(x_right)]
@@ -231,7 +230,7 @@ class Modeler:
                         scale_mode = 0
                         if x_left[0] != x_left[1] and x_right[0] != x_right[1] and x_left[1] - x_left[0] != x_right[1] - x_right[0]:
                             obj = place_unit(obj, [0, 0], 
-                                                  [max(x_right[0] - x_left[0], 0.001), max(x_right[1] - x_left[1], 0.001)],
+                                                  [max(x_right[0] - x_left[0], EPS), max(x_right[1] - x_left[1], EPS)],
                                                    preserve_uv=1, interpolation='linear', copy=False)
                             uvflag = 0
                             scale_mode = 2
@@ -270,27 +269,41 @@ class Modeler:
                 x2 = [xs_start[p+nblocks], xs_end[p+nblocks]]
                 x1 = [(x0[0] + x2[0]) / 2, (x0[1] + x2[1]) / 2]
                 if p == 0:
+                    # the mesh of central channel should be flipped
+                    # to ensure normal game behavior
+                    # also uvflag should be flipped
                     if divide_line:
                         obj = self.objs['LANE']['channel']
                         w = get_dims(obj.data)[0]
+                        obj = place_unit(obj, [0, 0], [2*w, 2*w], 
+                                                preserve_uv=1, interpolation='linear')
+                        obj_temp = make_mirror(obj, copy=False)
+                        print(x0, x2)
                         if x0[0] == x2[0]:
-                            obj_temp = place_unit(obj, [0, -w], [0, w], 
-                                                preserve_uv=1, interpolation='linear')
+                            if x0[0] + x2[0] == x0[1] + x2[1]:
+                                obj_temp = place_unit(obj, [w, 0], [w + EPS, 2 * w], 
+                                                preserve_uv=-1, interpolation='linear', copy=False)
+                            else:
+                                obj_temp = place_unit(obj, [0, 0], [EPS, 2 * w], 
+                                                    preserve_uv=-1, interpolation='linear', copy=False)
                         elif x0[1] == x2[1]:
-                            obj_temp = place_unit(obj, [0, w], [2*w, w+0.001], 
-                                                preserve_uv=1, interpolation='linear')
-                        else:
-                            obj_temp = place_unit(obj, [0, 0], [2*w, 2*w], 
-                                                preserve_uv=1, interpolation='linear')
+                            if x0[0] + x2[0] == x0[1] + x2[1]:
+                                obj_temp = place_unit(obj, [0, w], [2 * w, w + EPS], 
+                                                    preserve_uv=-1, interpolation='linear', copy=False)
+                            else:
+                                obj_temp = place_unit(obj, [0, 0], [2 * w, EPS], 
+                                                    preserve_uv=-1, interpolation='linear', copy=False)   
                         objs_created.append(place_unit(obj_temp, [2*x0[0]-x2[0],2*x0[1]-x2[1]], x2, scale_mode=2, copy=False))
                 else:
+
+
                     obj = self.objs['LANE']['channel']
                     obj_temp = None 
                     print(x0, x1, x2)
                     if x0[0] == x2[0]:
-                        obj_temp = place_unit(obj, [0,0], [0.001,get_dims(obj.data)[0]], preserve_uv=1, interpolation='linear')
+                        obj_temp = place_unit(obj, [0,0], [EPS,get_dims(obj.data)[0]], preserve_uv=1, interpolation='linear')
                     elif x0[1] == x2[1]:
-                        obj_temp = place_unit(obj, [0,0], [get_dims(obj.data)[0], 0.001], preserve_uv=1, interpolation='linear')
+                        obj_temp = place_unit(obj, [0,0], [get_dims(obj.data)[0], EPS], preserve_uv=1, interpolation='linear')
                     objs_created.append(place_unit(obj_temp, x1, x2, scale_mode=2))
                     obj_temp = make_mirror(obj_temp, copy=False)
                     objs_created.append(place_unit(obj_temp, x0, x1, scale_mode=2, copy=False))
@@ -463,7 +476,7 @@ class Modeler:
             p += nblocks
         return objs_created
 
-    def __make_tunnel(self, units, xs_start, xs_end):
+    def __make_tunnel(self, units, xs_start, xs_end, ncall=[0]):
         objs_created = []
         lb = self.lane_border
         p = 0
@@ -515,6 +528,7 @@ class Modeler:
         return objs_created
 
     def __make_slope(self, units, xs_start, xs_end, reverse=False):
+        deselect()
         objs_created = []
         lb = self.lane_border
         p = 0
@@ -556,7 +570,7 @@ class Modeler:
             obj = make_mirror(obj, axis=1, copy=False)
         objs_created.append(place_unit(obj, 
                             [xs_start[p] - lb, xs_end[p] - lb], [xs_start[-2] + lb, xs_end[-2] + lb], copy=False))
-        w_lanes = max(xs_end[-2] - xs_end[1], xs_start[-2] - xs_start[1])
+        w_lanes = max(xs_end[-2] - xs_end[units.index(Segment.LANE)], xs_start[-2] - xs_start[units.index(Segment.LANE)])
         obj = duplicate(self.objs['SLOPE']['arch'] if w_lanes > 3 * LANEWIDTH else self.objs['SLOPE']['arch2'])
         if reverse:
             obj = make_mirror(obj, axis=1, copy=False)
@@ -706,6 +720,7 @@ class Modeler:
 
 
     def __make_segment(self, seg, mode, busstop, divide_line=False):
+        deselect()
         self.__check_busstop(seg, busstop)
         units = [x or y for x, y in zip(seg.start, seg.end)]
         x_start, x_end = seg.x_start, seg.x_end
@@ -717,7 +732,6 @@ class Modeler:
         for i in range(p, len(units)):
             if units[i] == Segment.MEDIAN and mode[0] != 'g':
                 units[i] = Segment.SHOULDER
-        print(units)
         # place traffic lanes
         lanes = self.__make_lanes(units, x_start, x_end, busstop, divide_line)
         # place ground units
@@ -794,6 +808,7 @@ class Modeler:
         
 
     def make_arrows(self, seg):
+        deselect()
         if isinstance(seg, csur.TwoWay):
             arrow_f = Modeler.make_arrows(self, seg.right)
             arrow_r = Modeler.make_arrows(self, seg.left)
@@ -801,17 +816,22 @@ class Modeler:
             arrows = make_mesh([arrow_f, arrow_r])
         else:
             p = 0
+            wmin = LANEWIDTH / 20
             units = [x or y for x, y in zip(seg.start, seg.end)]
             xs_start, xs_end = seg.x_start, seg.x_end
             arrows = []
             for i, u in enumerate(units):
                 if u == Segment.LANE:
+                    print([xs_start[i], xs_end[i]])
+                    print([max(xs_start[i] + wmin, xs_start[i + 1]),
+                                             max(xs_end[i] + wmin, xs_end[i + 1])])
                     arrows.append(place_unit(self.objs['TUNNEL']['arrow'], 
                                             [xs_start[i], xs_end[i]], 
-                                            [xs_start[i + 1], xs_end[i + 1]]))
+                                            [max(xs_start[i] + wmin, xs_start[i + 1]),
+                                             max(xs_end[i] + wmin, xs_end[i + 1])], scale_mode=1))
             arrows = make_mesh(arrows)
             reset_origin(arrows)
-        arrows.name = str(seg) + 'tunnel_arrows'
+        arrows.name = str(seg) + '_tunnel_arrows'
         return arrows
         
  
@@ -824,6 +844,7 @@ class Modeler:
        the median should be two units (one lane width) wide.
     '''
     def make(self, seg, mode='g', busstop=None):
+        deselect()
         busstop = busstop and busstop.lower()
         self.check_mode(mode)
         if isinstance(seg, csur.TwoWay):
@@ -867,58 +888,68 @@ class Modeler:
         if struc:
             struc.name = str(seg) + '_structure'
             clean_materials(struc)
-        # Slope meshes are reversed
+        # Slope structure meshes are reversed if the mesh has x<0 part
         if mode[0] == 's':
-            lanes.rotation_euler[2] = 3.1415926536
-            transform_apply(lanes, rotation=True)
-            struc.rotation_euler[2] = 3.1415926536
-            transform_apply(struc, rotation=True)
+            if isinstance(seg, csur.TwoWay) or min(seg.x_start + seg.x_end) < 0:
+                lanes.rotation_euler[2] = 3.1415926536
+                transform_apply(lanes, rotation=True)
+                struc.rotation_euler[2] = 3.1415926536
+                transform_apply(struc, rotation=True)
+            else:
+                # otherwise mirror the mesh instead of rotate
+                # the game seems to have unpredictable behavior on transforming the slope model
+                # so this is totally heuristic
+                lanes = make_mirror(lanes, axis=0, copy=False, realign=False)
+                struc = make_mirror(struc, axis=0, copy=False, realign=False)
+                pass
         if busstop == 'brt':
             return lanes, struc, brt_f, brt_both
         else:
-            return lanes, struc
+            if type(lanes) == list:
+                return lanes[0], lanes[1], struc
+            else:
+                return lanes, struc
 
     def make_presentation(self, seg, mode='g'):
         lanes, struc = self.make(seg, mode)
         return make_mesh([lanes, struc])
 
 
-    # TODO: separate sidewalk and asphalt in the pavement
-    # TODO: create two pavements, the no-crossing one is 
-    # used for compatibility and DC nodes
     def make_node(self, seg, compatibility=False):
         deselect()
         margin = 0.1
         if isinstance(seg, csur.TwoWay):
-            p = 0
-            while seg.right.start[p] == Segment.MEDIAN:
-                p += 1
-            stopline = place_unit(self.objs['NODE']['stop_line'], 
-                        [seg.right.start[p], seg.right.end[p]], 
-                        [seg.right.x_start[-3], seg.right.x_end[-3]])
-            pavement_l, junction_l = Modeler.make_node(self, seg.left, compatibility)
-            pavement_r, junction_r = Modeler.make_node(self, seg.right, compatibility)
+            p = seg.right.start.index(Segment.LANE)
+            if not compatibility:
+                stopline = place_unit(self.objs['NODE']['stop_line'], 
+                            [seg.right.x_start[p], seg.right.x_end[p]], 
+                            [seg.right.x_start[-3], seg.right.x_end[-3]])
+            elements_l = Modeler.make_node(self, seg.left, compatibility)
+            elements_r = Modeler.make_node(self, seg.right, compatibility)
             # if the node is asymmetric then recenter the end of the node
             # use halfcosine interpolation so two consecutive nodes can align
+            '''
+            cancels node for non-centered roads
             if seg.left.start != seg.right.start:
                 w_left = get_dims(pavement_l.data)[0]
                 w_right = get_dims(pavement_r.data)[0]
                 w_new = max(w_left, w_right)
                 pavement_l = place_unit(pavement_l, [0, 0], [w_left, w_new], interpolation='cosine', copy=False)
                 pavement_r = place_unit(pavement_r, [0, 0], [w_right, w_new], interpolation='cosine', copy=False)
-            pavement_l = make_mirror(pavement_l, copy=False, realign=False)
-            junction_l = make_mirror(junction_l, copy=False, realign=False)
-            pavement = make_mesh([pavement_l, pavement_r])
-            junction = make_mesh([junction_l, junction_r, stopline])
-            if compatibility:
-                pavement.name = str(seg) + "_cpnode_pavement"
-                junction.name = str(seg) + "_cpnode_junction"
-            else:
-                pavement.name = str(seg) + "_node_pavement"
-                junction.name = str(seg) + "_node_junction"
-            return pavement, junction
+            '''
+            elements = []
+            for el, er in zip(elements_l, elements_r):
+                el = make_mirror(el, copy=False, realign=False)
+                new_element = make_mesh([el, er])
+                new_element.name = str(seg) + '_' + '_'.join(el.name.split('_')[1:])
+                elements.append(new_element)
+            if not compatibility:
+                elements[-1] = make_mesh([elements[-1], stopline])
+            return tuple(elements)
         lb = self.lane_border
-        pavement = []
+        sidewalk = []
+        # sidewalk2 does not have crossing
+        sidewalk2 = []
         junction = []
         if seg.roadtype() != "b":
             raise NotImplementedError("Node is only valid for base module!")
@@ -931,7 +962,8 @@ class Modeler:
             while p + nblocks < len(units) and (units[p + nblocks] == units[p] \
                     or units[p + nblocks] == Segment.EMPTY):
                 nblocks += 1
-            if units[p] == Segment.MEDIAN:
+            # compatibility mode does not have median parts
+            if units[p] == Segment.MEDIAN and not compatibility:
                 if p == 0:
                     obj = self.objs['NODE']['central_median']
                     junction.append(place_unit(obj, [xs_start[p], xs_end[p]],
@@ -942,39 +974,51 @@ class Modeler:
                     junction.append(place_unit(obj, [xs_start[p] + lb + margin, xs_end[p] + lb + margin],
                                     [xs_start[p + nblocks] - lb - margin, xs_end[p + nblocks] - lb - margin], scale_mode=0))
             elif units[p] == Segment.SIDEWALK:
-                if compatibility:
-                    key = 'sidewalk2'
-                else:
-                    key = 'sidewalk'
-                obj = self.objs['NODE'][key]
+                # sidewalk model is determined by whether the road is wider than 3R in g mode
+                key = 'sidewalk' if seg.x_start[-1] > 5.5 * LANEWIDTH else 'sidewalk_small'
                 if p == 0:
-                    obj = make_mirror(obj, axis=0)
-                    pavement.append(place_unit(obj, 
+                    obj = make_mirror(self.objs['NODE'][key], axis=0)
+                    sidewalk.append(place_unit(obj, 
                             [xs_start[0], xs_end[0]], 
                             [xs_start[2] - lb - margin, xs_end[2] - lb - margin], preserve_obj=True, copy=False))
+                    # do not create the no-crossing sidewalk in compatibility mode
+                    if not compatibility:
+                        obj = make_mirror(self.objs['NODE']['sidewalk2'], axis=0)
+                        sidewalk2.append(place_unit(obj, 
+                                [xs_start[0], xs_end[0]], 
+                                [xs_start[2] - lb - margin, xs_end[2] - lb - margin], preserve_obj=True, copy=False))
                 else:
-                    pavement.append(place_unit(obj, 
+                    sidewalk.append(place_unit(self.objs['NODE'][key], 
                             [xs_start[-3] + lb + margin, xs_end[-3] + lb + margin], 
                             [xs_start[-1], xs_end[-1]], preserve_obj=True))
-                
+                    if not compatibility:
+                        sidewalk2.append(place_unit(self.objs['NODE']['sidewalk2'], 
+                            [xs_start[-3] + lb + margin, xs_end[-3] + lb + margin], 
+                            [xs_start[-1], xs_end[-1]], preserve_obj=True))     
             p += nblocks
-        pavement.append(place_unit(self.objs['NODE']['asphalt'], 
+        asphalt = place_unit(self.objs['NODE']['asphalt'], 
                     [0, 0], 
-                    [xs_start[-3] + lb + margin, xs_end[-3] + lb + margin], scale_mode=1))
-        pavement = make_mesh(pavement)
-        reset_origin(pavement)
-        junction = make_mesh(junction)
-        reset_origin(junction)
+                    [xs_start[-3] + lb + margin, xs_end[-3] + lb + margin], scale_mode=1)
+        sidewalk = make_mesh(sidewalk)
+        reset_origin(sidewalk)
+        if not compatibility:
+            sidewalk2 = make_mesh(sidewalk2)
+            reset_origin(sidewalk2)
+            junction = make_mesh(junction)
+            reset_origin(junction)
         # make compatibility nodes to connect vanilla roads
         if compatibility:
-            place_slope(pavement, -0.3, dim=64)
-            place_slope(junction, -0.3, dim=64)
-            pavement.name = str(seg) + "_cpnode_pavement"
-            junction.name = str(seg) + "_cpnode_junction"
+            place_slope(sidewalk, -0.25 + 5 * EPS, dim=64)
+            place_slope(asphalt, -0.3, dim=64)
+            sidewalk.name = str(seg) + "_cpnode_sidewalk"
+            asphalt.name = str(seg) + "_cpnode_asphalt"
+            return sidewalk, asphalt
         else:
-            pavement.name = str(seg) + "_node_pavement"
+            sidewalk.name = str(seg) + "_node_sidewalk"
+            sidewalk2.name = str(seg) + "_node_sidewalk2"
+            asphalt.name = str(seg) + "_node_asphalt"
             junction.name = str(seg) + "_node_junction"
-        return pavement, junction
+            return sidewalk, sidewalk2, asphalt, junction
 
     def __get_dc_components(self, seg, divide_line=False, keep_all=False, unprotect_bikelane=True, central_channel=False):
         units = [x or y for x, y in zip(seg.start, seg.end)]
@@ -1034,7 +1078,7 @@ class Modeler:
                                             [my_median[1] + LANEWIDTH/2, target_median[1] + LANEWIDTH/2],
                                             copy=False)
                 # prevent z-fighting
-                median.location[2] = 0.005
+                median.location[2] = 5 * EPS
                 transform_apply(median, location=True)
             dcnode = make_mesh([median, lanes])
         # when the road is undivided, must create another segment from factory
@@ -1125,7 +1169,7 @@ class Modeler:
             # then we add median and adjust its position
             median = put_objects([self.objs['GROUND']['median_h'], self.objs['LANE']['lane_l']])
             median = make_mesh([median, make_mirror(median, realign=False)])
-            median.location[2] = 0.005
+            median.location[2] = 5 * EPS
             align(median.data)
             for x in struc:
                 delete(x)
@@ -1159,7 +1203,10 @@ class ModelerLodded(Modeler):
         self.lod_cache = {}
 
     def save(self, obj, path):
-        lod_model = self.lod_cache[id(obj)]
+        try:
+            lod_model = self.lod_cache[id(obj)]
+        except KeyError:
+            raise KeyError("object %s does not have LOD modeled", str(obj), id(obj))
         super().save(obj, path)
         self.lodmodeler.save(lod_model, ''.join(path.split('.')[:-1]) + '_lod.FBX')
 
@@ -1168,28 +1215,34 @@ class ModelerLodded(Modeler):
             model = (model, )
             lod = (lod, )
         for m, l in zip(model, lod):
+            if type(l) == bpy.types.Object:
+                l.name += '_lod'
             self.lod_cache[id(m)] = l
 
     def make_arrows(self, seg):
         model = super().make_arrows(seg)
+        deselect()
         lod = self.lodmodeler.make_arrows(seg)
         self.cachelod(model, lod)
         return model
 
     def make(self, seg, mode='g', busstop=None):
         model = super().make(seg, mode, busstop)
+        deselect()
         lod = self.lodmodeler.make(seg, mode, busstop)
         self.cachelod(model, lod)
         return model
 
     def make_node(self, seg, compatibility=False):
         model = super().make_node(seg, compatibility)
+        deselect()
         lod = self.lodmodeler.make_node(seg, compatibility)
         self.cachelod(model, lod)
         return model
 
     def make_dc_node(self, seg, target_median=None, unprotect_bikelane=True):
         model = super().make_dc_node(seg, target_median, unprotect_bikelane)
+        deselect()
         lod = self.lodmodeler.make_dc_node(seg, target_median, unprotect_bikelane)
         self.cachelod(model, lod)
         return model
@@ -1203,12 +1256,14 @@ class ModelerLodded(Modeler):
 
     def make_asym_invert_node(self, seg, halved=False):
         model = super().make_asym_invert_node(seg, halved)
+        deselect()
         lod = self.lodmodeler.make_asym_invert_node(seg, halved)
         self.cachelod(model, lod)
         return model
 
     def convert_to_dcnode(self, dcnode_seg, keep_bikelane=True):
         model = super().convert_to_dcnode(dcnode_seg, keep_bikelane)
+        deselect()
         lod = self.lodmodeler.convert_to_dcnode(dcnode_seg, keep_bikelane)
         self.cachelod(model, lod)
         return model

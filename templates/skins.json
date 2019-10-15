@@ -24,13 +24,35 @@
         "median_gnd": "1826488681.Stainless Avenue Light_Data",
         "median_elv": "1826488681.Stainless Avenue Light_Data",
         "side_gnd_small": "1826488681.Reflective Light Double_Data",
-        "side_gnd_large": "1826488681.Reflective Light Single_Data",
+        "side_gnd_large": "1826488681.Stainless Street Light_Data",
         "side_elv": "1228724586.R69 Expressway Light_Data",
-        "side_tun": ""
+        "side_tun": null
     },
     "tree": {
         "side": "943453922.Regular Tree Small _Data",
-        "median": ""
+        "median": null
+    },
+
+    "sign": {
+        "roadname": [
+            "1764369229.\u6307\u8def\u724c_Data"
+        ],
+        "intersection": [
+            null,
+            null,
+            null,
+            "1764377010.\u56db\u8f66\u9053\u5206\u6d41\u6307\u793a_Data",
+            "1764377010.\u4e94\u8f66\u9053\u5206\u6d41\u6307\u793a_Data",
+            "1764377010.\u516d\u8f66\u9053\u5206\u6d41\u6307\u793a_Data"
+        ],
+        "railwaycrossing": [
+            "Railway Crossing Short",
+            "Railway Crossing Medium",
+            "Railway Crossing Long",
+            "Railway Crossing Very Long",
+            "Railway Crossing Very Long",
+            "Railway Crossing Very Long"
+        ]
     }
 
 }

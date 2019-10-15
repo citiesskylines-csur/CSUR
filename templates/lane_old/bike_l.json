@@ -1,15 +1,15 @@
 {
-    "m_position": "27.5",
+    "m_position": "-27.5",
     "m_width": "2",
     "m_verticalOffset": "0",
-    "m_stopOffset": "3",
+    "m_stopOffset": "-3",
     "m_speedLimit": "0.2",
-    "m_direction": "Forward",
+    "m_direction": "Backward",
     "m_laneType": "Vehicle",
     "m_vehicleType": "Bicycle",
     "m_stopType": "None",
     "m_laneProps": {
-        "Prop": {
+        "Prop": [{
             "m_flagsRequired": "None",
             "m_flagsForbidden": "None",
             "m_startFlagsRequired": "None",
@@ -32,11 +32,11 @@
             "m_minLength": "8",
             "m_cornerAngle": "0",
             "m_probability": "15"
-        }
+        }]
     },
     "m_allowConnect": "true",
     "m_useTerrainHeight": "false",
     "m_centerPlatform": "false",
     "m_elevated": "false",
-    "m_finalDirection": "Forward"
+    "m_finalDirection": "Backward"
 }

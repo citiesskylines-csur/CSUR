@@ -1,0 +1,164 @@
+{
+    "m_position": "0",
+    "m_width": "3",
+    "m_verticalOffset": "0",
+    "m_stopOffset": "0",
+    "m_speedLimit": "1.2",
+    "m_direction": "Forward",
+    "m_laneType": "Vehicle",
+    "m_vehicleType": "Car",
+    "m_stopType": "None",
+    "m_laneProps": {
+        "Prop": [
+            {
+                "m_flagsRequired": "Forward",
+                "m_flagsForbidden": "LeftRight",
+                "m_startFlagsRequired": "None",
+                "m_startFlagsForbidden": "None",
+                "m_endFlagsRequired": "None",
+                "m_endFlagsForbidden": "None",
+                "m_colorMode": "Default",
+                "m_prop": "1533668639.Ama Arrow F_Data",
+                "m_tree": null,
+                "m_position": {
+                    "float": [
+                        "0",
+                        "0",
+                        "-4"
+                    ]
+                },
+                "m_angle": "180",
+                "m_segmentOffset": "0.8",
+                "m_repeatDistance": "0",
+                "m_minLength": "8",
+                "m_cornerAngle": "0",
+                "m_probability": "100"
+            },
+            {
+                "m_flagsRequired": "ForwardRight",
+                "m_flagsForbidden": "Left",
+                "m_startFlagsRequired": "None",
+                "m_startFlagsForbidden": "None",
+                "m_endFlagsRequired": "None",
+                "m_endFlagsForbidden": "None",
+                "m_colorMode": "Default",
+                "m_prop": "1533668639.Ama Arrow FR_Data",
+                "m_tree": null,
+                "m_position": {
+                    "float": [
+                        "0",
+                        "0",
+                        "-4"
+                    ]
+                },
+                "m_angle": "180",
+                "m_segmentOffset": "0.8",
+                "m_repeatDistance": "0",
+                "m_minLength": "8",
+                "m_cornerAngle": "0",
+                "m_probability": "100"
+            },
+            {
+                "m_flagsRequired": "Left",
+                "m_flagsForbidden": "ForwardRight",
+                "m_startFlagsRequired": "None",
+                "m_startFlagsForbidden": "None",
+                "m_endFlagsRequired": "None",
+                "m_endFlagsForbidden": "None",
+                "m_colorMode": "Default",
+                "m_prop": "1533668639.Ama Arrow L_Data",
+                "m_tree": null,
+                "m_position": {
+                    "float": [
+                        "0",
+                        "0",
+                        "-4"
+                    ]
+                },
+                "m_angle": "180",
+                "m_segmentOffset": "0.8",
+                "m_repeatDistance": "0",
+                "m_minLength": "8",
+                "m_cornerAngle": "0",
+                "m_probability": "100"
+            },
+            {
+                "m_flagsRequired": "LeftForward",
+                "m_flagsForbidden": "Right",
+                "m_startFlagsRequired": "None",
+                "m_startFlagsForbidden": "None",
+                "m_endFlagsRequired": "None",
+                "m_endFlagsForbidden": "None",
+                "m_colorMode": "Default",
+                "m_prop": "1533668639.Ama Arrow LF_Data",
+                "m_tree": null,
+                "m_position": {
+                    "float": [
+                        "0",
+                        "0",
+                        "-4"
+                    ]
+                },
+                "m_angle": "180",
+                "m_segmentOffset": "0.8",
+                "m_repeatDistance": "0",
+                "m_minLength": "8",
+                "m_cornerAngle": "0",
+                "m_probability": "100"
+            },
+            {
+                "m_flagsRequired": "Right",
+                "m_flagsForbidden": "LeftForward",
+                "m_startFlagsRequired": "None",
+                "m_startFlagsForbidden": "None",
+                "m_endFlagsRequired": "None",
+                "m_endFlagsForbidden": "None",
+                "m_colorMode": "Default",
+                "m_prop": "1533668639.Ama Arrow R_Data",
+                "m_tree": null,
+                "m_position": {
+                    "float": [
+                        "0",
+                        "0",
+                        "-4"
+                    ]
+                },
+                "m_angle": "180",
+                "m_segmentOffset": "0.8",
+                "m_repeatDistance": "0",
+                "m_minLength": "8",
+                "m_cornerAngle": "0",
+                "m_probability": "100"
+            },
+            {
+                "m_flagsRequired": "None",
+                "m_flagsForbidden": "None",
+                "m_startFlagsRequired": "None",
+                "m_startFlagsForbidden": "None",
+                "m_endFlagsRequired": "None",
+                "m_endFlagsForbidden": "None",
+                "m_colorMode": "Default",
+                "m_prop": "Manhole",
+                "m_tree": null,
+                "m_position": {
+                    "float": [
+                        "0",
+                        "0",
+                        "-4"
+                    ]
+                },
+                "m_angle": "180",
+                "m_segmentOffset": "0.5",
+                "m_repeatDistance": "0",
+                "m_minLength": "8",
+                "m_cornerAngle": "0",
+                "m_probability": "15"
+            }
+        ]
+    },
+    "m_allowConnect": "true",
+    "m_useTerrainHeight": "false",
+    "m_centerPlatform": "false",
+    "m_elevated": "false",
+    "m_finalDirection": "Forward"
+}
