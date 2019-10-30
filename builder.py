@@ -386,7 +386,7 @@ class Builder:
                 left_neighbors.append(combine(road, new_asset))
             if rspace == SW.MEDIAN or \
                 (nlane >= WIDE_SPLIT_MIN and rspace > 0 and rspace / SW.MEDIAN == int(rspace / SW.MEDIAN)):
-                right_neighbors.append(combine(new_asset, road))
+                right_neighbors.append(combine(new_asset, road))   
         # add duplex pairs
         for duplex in left_neighbors + right_neighbors:
             if duplex.nl() <= self.max_lane:

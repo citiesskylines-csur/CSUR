@@ -61,6 +61,9 @@ class Asset():
     def nl(self):
         return self.ntot_start()
 
+    def center(self):
+        return [(b[-1].x_right + b[0].x_left) / 2 for b in self._blocks]
+
     def is_undivided(self):
         return self.xleft[0] == 0 or self.xleft[1] == 0
 
@@ -159,7 +162,7 @@ class TwoWayAsset(Asset):
     def get_all_blocks(self):
         # right hand traffic
         blocks_right = self.right._blocks
-        blocks_left = [[x.mirror() for x in self.left._blocks[1]], [x.mirror() for x in self.left._blocks[0]]]
+        blocks_left = [[x.mirror() for x in b] for b in self.left._blocks[::-1]]
         return [blocks_left[0] + blocks_right[0], blocks_left[1] + blocks_right[1]]
 
     def is_twoway(self):

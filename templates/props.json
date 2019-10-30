@@ -125,6 +125,32 @@
             "m_probability": "100"
         }
     ],
+    "light_tunnel": [
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "None",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "None",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "Default",
+            "m_prop": "CSUR@LIGHT:SIDE",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "-0.8125",
+                    "5.5",
+                    "0"
+                ]
+            },
+            "m_angle": "-90",
+            "m_segmentOffset": "0",
+            "m_repeatDistance": "8",
+            "m_minLength": "0",
+            "m_cornerAngle": "0",
+            "m_probability": "100"
+        }
+    ],
     "random_street_prop": [
         {
             "m_flagsRequired": "None",

@@ -54,9 +54,9 @@ def make_axis(canvas, asset, config, rspace=RSPACE, thumbmode=None, draw_referen
     if asset.is_twoway():
         wmax = max(blocks[0][-1].x_right, -blocks[0][0].x_left,
                    blocks[1][-1].x_right, -blocks[1][0].x_left, 3.5*SW.LANE)
-        units = [x or y for x, y in zip(seg.left.start[::-1] + seg.right.start, seg.left.end[::-1] + seg.right.end)]
-        x_start = [-x for x in seg.left.x_start[::-1]] + seg.right.x_start[1:]
-        x_end = [-x for x in seg.left.x_end[::-1]] + seg.right.x_end[1:]
+        units = [x or y for x, y in zip(seg.left.end[::-1] + seg.right.start, seg.left.start[::-1] + seg.right.end)]
+        x_start = [-x for x in seg.left.x_end[::-1]] + seg.right.x_start[1:]
+        x_end = [-x for x in seg.left.x_start[::-1]] + seg.right.x_end[1:]
         i0 = -int(wmax // (SW.LANE / 2))
         wmax *= 2
     else:
@@ -155,9 +155,11 @@ def make_axis(canvas, asset, config, rspace=RSPACE, thumbmode=None, draw_referen
                     x0 = x0 - tick_length if x0 < x1 else x0 + tick_length
                 if x_end[i + 1] == x_end[i]:
                     x1 = x1 - tick_length if x1 < x0 else x1 + tick_length
-                canvas.add_line((x0, axis_bottom - tick_height - margin), 
-                                (x1, axis_top + tick_height + margin), 
-                                0.015, Color(accent), arrow=1)
+                r0 = (x0, axis_bottom - tick_height - margin)
+                r1 = (x1, axis_top + tick_height + margin)
+                if i < seg.middle_index():
+                    r0, r1 = r1, r0
+                canvas.add_line(r0, r1, 0.015, Color(accent), arrow=1)
 
         for i in range(i0, i0 + nticks):
             left = axis_start + (i - i0) * tick_length
@@ -243,7 +245,8 @@ if __name__ == "__main__":
             draw(asset)
     '''
     #asset2 = Asset(3*1.875, 2)
-    asset = Asset(3.75*3, 2)
+    asset = Asset(0, 3, 1.875, 3)
+    asset = TwoWayAsset(asset, asset)
     #asset = TwoWayAsset(asset2, asset)
     for mode in [None, 'disabled', 'hovered', 'focused', 'pressed']:
         draw(asset, "C:/Work/roads/CSUR/img/color.ini", "example", mode=mode)

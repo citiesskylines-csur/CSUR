@@ -1,4 +1,12 @@
-{
+{   
+    "none": {
+        "m_forwardRequired": "None", 
+        "m_forwardForbidden": "None", 
+        "m_backwardRequired": "None", 
+        "m_backwardForbidden": "None", 
+        "m_emptyTransparent": "false", 
+        "m_disableBendNodes": "false"
+    },
     "default": {
         "m_forwardRequired": "None", 
         "m_forwardForbidden": "StopBoth Invert", 
@@ -23,11 +31,27 @@
         "m_emptyTransparent": "false", 
         "m_disableBendNodes": "false"
     },
-    "slope": {
-        "m_forwardRequired": "None", 
-        "m_forwardForbidden": "None", 
-        "m_backwardRequired": "None", 
+    "bikepolicy": {
+        "m_forwardRequired": "BikeBan", 
+        "m_forwardForbidden": "Invert", 
+        "m_backwardRequired": "Invert", 
         "m_backwardForbidden": "None", 
+        "m_emptyTransparent": "false", 
+        "m_disableBendNodes": "false"
+    },
+    "slope_down": {
+        "m_forwardRequired": "Invert", 
+        "m_forwardForbidden": "None", 
+        "m_backwardRequired": "Invert", 
+        "m_backwardForbidden": "None", 
+        "m_emptyTransparent": "false", 
+        "m_disableBendNodes": "false"
+    },
+    "slope_up": {
+        "m_forwardRequired": "None", 
+        "m_forwardForbidden": "Invert", 
+        "m_backwardRequired": "None", 
+        "m_backwardForbidden": "Invert", 
         "m_emptyTransparent": "false", 
         "m_disableBendNodes": "false"
     },

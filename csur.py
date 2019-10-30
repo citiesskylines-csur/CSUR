@@ -193,6 +193,9 @@ class Segment():
 
     def reverse(self):
         return type(self)(self.end, self.start, x_left=[self.x_end[0], self.x_start[0]])
+
+    def copy(self):
+        return type(self)(self.start, self.end, x_left=[self.x_start[0], self.x_end[0]])
   
     def roadtype(self):
         raise NotImplementedError("Undefined road type!")

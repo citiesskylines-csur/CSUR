@@ -70,7 +70,7 @@ def delete(obj):
 
 '''
 Approximate equal operator to prevent truncation error.
-EQ for scaler values and DEQ for vector distances.
+EQ for scalar values and DEQ for vector distances.
 '''
 EPS = 1e-3
 eq = lambda x, y: abs(x - y) < EPS
@@ -156,14 +156,43 @@ def make_mirror(obj, axis=0, copy=True, realign=True):
         align(obj.data, axis=0)
     return obj
 
+
+def strip(obj, low, high, axis=0):
+    deselect()
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode="OBJECT")
+    obj = bpy.context.active_object
+    bpy.ops.object.mode_set(mode="EDIT") 
+    bpy.ops.mesh.select_mode(type="VERT")
+    bpy.ops.mesh.select_all(action="DESELECT")
+    bpy.ops.object.mode_set(mode="OBJECT")
+    for v in obj.data.vertices: 
+        if low <= v.co[axis] <= high:
+            v.select = True
+        else:
+            v.select = False
+    bpy.ops.object.mode_set(mode="EDIT") 
+    bpy.ops.mesh.delete(type='VERT')  
+    bpy.ops.object.editmode_toggle()
+    return obj
+
+def invert(obj, axis=2, copy=True, realign=True):
+    if copy:
+        obj = duplicate(obj)
+    obj.rotation_euler[axis] = 3.1415926536
+    transform_apply(obj)
+    if realign:
+        align(obj.data)
+    return obj
+
 '''
-Make a list of objects OBJ into a single mesh.
+Make a list of objects OBJS into a single mesh.
 Also merges overlapping vertices.
 '''
 @selection_safe
 def make_mesh(objs, merge=True, smooth=True):
     bpy.context.view_layer.objects.active = objs[0]
-    [o.select_set(True) for o in objs]
+    [o.select_set(True) for o in objs if o]
     bpy.ops.object.join()
     bpy.ops.object.editmode_toggle()
     if merge:
@@ -267,49 +296,44 @@ def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=Fa
         xs_right[i] -= x0
     vert_l, vert_c, vert_r = partition(obj.data, axis=0, return_center=True)
     if preserve_uv:
-        uv_xdim = min(l.uv[0] for l in obj.data.uv_layers.active.data),\
-                    max(l.uv[0] for l in obj.data.uv_layers.active.data)
-        uv_ydim = min(l.uv[1] for l in obj.data.uv_layers.active.data),\
-                    max(l.uv[1] for l in obj.data.uv_layers.active.data)
-        visited = {}
+        deltas = {}
+        for v in obj.data.vertices:
+            alpha = v.co[1] / dims[1] + 0.5
+            if scale_mode:
+                # assume that object is x-aligned
+                if scale_mode == 1:
+                    beta = v.co[0] / dims[0]
+                else:
+                    raise ValueError("non-parallel scaling conflicts with UV perservation!")
+                x1 = interpolate(0, xs_right[0], beta, 'linear')
+                x2 = interpolate(xs_left[1], xs_right[1], beta, 'linear')
+                dx = interpolate(x1, x2, alpha, interpolation) - dims[0] * beta
+            else:
+                if v in vert_l:
+                    dx = interpolate(0, xs_left[1], alpha, interpolation)
+                elif v in vert_c:
+                    dx = interpolate(xs_right[0] / 2, (xs_left[1] + xs_right[1]) / 2, alpha, interpolation) - dims[0] / 2
+                else:
+                    dx = interpolate(xs_right[0], xs_right[1], alpha, interpolation) - dims[0]
+            v.co[0] += dx
+            deltas[v] = dx
         for face in obj.data.polygons:
+            uv_xdim = min(obj.data.uv_layers.active.data[il].uv[0] for il in face.loop_indices),\
+                    max(obj.data.uv_layers.active.data[il].uv[0] for il in face.loop_indices)
+            uv_ydim = min(obj.data.uv_layers.active.data[il].uv[1] for il in face.loop_indices),\
+                        max(obj.data.uv_layers.active.data[il].uv[1] for il in face.loop_indices)
             for iv, il in zip(face.vertices, face.loop_indices):
                 v = obj.data.vertices[iv]
                 l = obj.data.uv_layers.active.data[il]
-                alpha = v.co[1] / dims[1] + 0.5
-                if v not in visited:
-                    if scale_mode:
-                        # assume that object is x-aligned
-                        if scale_mode == 1:
-                            beta = v.co[0] / dims[0]
-                        else:
-                            raise ValueError("non-parallel scaling conflicts with UV perservation!")
-                        x1 = interpolate(0, xs_right[0], beta, 'linear')
-                        x2 = interpolate(xs_left[1], xs_right[1], beta, 'linear')
-                        dx = interpolate(x1, x2, alpha, interpolation) - dims[0] * beta
-                    else:
-                        if v in vert_l:
-                            dx = interpolate(0, xs_left[1], alpha, interpolation)
-                        elif v in vert_c:
-                            dx = interpolate(xs_right[0] / 2, (xs_left[1] + xs_right[1]) / 2, alpha, interpolation) - dims[0] / 2
-                        else:
-                            dx = interpolate(xs_right[0], xs_right[1], alpha, interpolation) - dims[0]
-                    v.co[0] += dx
-                    if preserve_uv in [-1, 1]:
-                        l.uv[0] -= preserve_uv \
-                                        * (dx / dims[0] + int(xs_left[0] > xs_left[1])) \
-                                        * (uv_xdim[1] - uv_xdim[0])
-                        visited[v] = l.uv[0]
-                    elif preserve_uv in [-2, 2]:
-                        l.uv[1] -= (preserve_uv // 2) \
-                                        * (dx / dims[0] + int(xs_left[0] > xs_left[1])) \
-                                        * (uv_ydim[1] - uv_ydim[0])
-                        visited[v] = l.uv[1]
-                else:
-                    if preserve_uv in [-1, 1]:
-                        l.uv[0] = visited[v]
-                    elif preserve_uv in [-2, 2]:
-                        l.uv[1] = visited[v]            
+                dx = deltas[v]
+                if preserve_uv in [-1, 1]:
+                    l.uv[0] -= preserve_uv \
+                                    * (dx / dims[0] + int(xs_left[0] > xs_left[1])) \
+                                    * (uv_xdim[1] - uv_xdim[0])
+                elif preserve_uv in [-2, 2]:
+                    l.uv[1] -= (preserve_uv // 2) \
+                                    * (dx / dims[0] + int(xs_left[0] > xs_left[1])) \
+                                    * (uv_ydim[1] - uv_ydim[0])
     else:
         if scale_mode:
             x_min = {}
