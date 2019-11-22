@@ -7,5 +7,6 @@
     "m_centerAreaWidth": "0",
     "m_constructionCost": "48000",
     "m_maintenanceCost": "3600",
-    "m_canModify": "true"
+    "m_canModify": "true",
+    "m_outsideConnection": "Road Connection"
 }

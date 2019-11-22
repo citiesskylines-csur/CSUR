@@ -10,8 +10,9 @@
     "m_bridgePillarInfo": "",
     "m_middlePillarInfo": null,
     "m_elevationCost": "2000",
-    "m_bridgePillarOffset": "-0.5",
+    "m_bridgePillarOffset": "0",
     "m_middlePillarOffset": "0",
     "m_doubleLength": "false",
-    "m_canModify": "true"
+    "m_canModify": "true",
+    "m_outsideConnection": "Road Connection"
 }

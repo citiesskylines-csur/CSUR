@@ -34,6 +34,7 @@
     "m_autoRemove": "false",
     "m_overlayVisible": "true",
     "m_connectGroup": "None",
+    "m_setVehicleFlags": "Transition",
     "m_lanes": {
         "Lane": []
     },
@@ -42,5 +43,6 @@
     },
     "m_nodes": {
         "Node": []
-    }
+    },
+    "m_UICategory": null
 }

@@ -60,10 +60,15 @@ def make_axis(canvas, asset, config, rspace=RSPACE, thumbmode=None, draw_referen
         i0 = -int(wmax // (SW.LANE / 2))
         wmax *= 2
     else:
-        wmax = max(blocks[0][-1].x_right, blocks[1][-1].x_right, 7.5*SW.LANE)     
         units = [x or y for x, y in zip(seg.start, seg.end)]
         x_start, x_end = seg.x_start, seg.x_end
-        i0 = 0
+        if seg.x_start[0] < 0:
+            wmax = max(blocks[0][-1].x_right - blocks[0][0].x_left, 
+                        blocks[1][-1].x_right - blocks[1][0].x_left, 7.5*SW.LANE)     
+            i0 = -int(wmax // (SW.LANE))
+        else:
+            wmax = max(blocks[0][-1].x_right, blocks[1][-1].x_right, 7.5*SW.LANE)     
+            i0 = 0
     nticks = int(wmax // (SW.LANE / 2))
     axis_start = 1 - rspace - 15 * tick_height
     tick_length = tick_height * 15 / nticks
@@ -133,7 +138,8 @@ def make_axis(canvas, asset, config, rspace=RSPACE, thumbmode=None, draw_referen
     
     if asset.is_undivided():
         c = config['UI']['strip']
-        center = [axis_start + (x // (SW.LANE / 2) - i0) * tick_length for x in seg.center]
+        loc = seg.center if asset.is_twoway() else [seg.x_start[0], seg.x_end[0]]
+        center = [axis_start + (x // (SW.LANE / 2) - i0) * tick_length for x in loc]
         canvas.add_line((center[0]-0.005, axis_bottom-tick_height-margin), 
                         (center[1]-0.005, axis_top+tick_height+margin), 
                         0.005, Color(c), arrow=0)
@@ -212,7 +218,7 @@ def draw(asset, configfile, filepath=None, mode=None):
 
     make_panel(canvas, roadtype, str(asset), config)
     make_sidebar(canvas, asset, config)
-    if asset.is_twoway() and not asset.is_undivided() and str(asset.left) == str(asset.right):
+    if asset.is_twoway() and not asset.is_undivided() and asset.is_symmetric():
         make_axis(canvas, asset.right, config, thumbmode=mode)
     else:
         make_axis(canvas, asset, config, thumbmode=mode)
@@ -245,8 +251,9 @@ if __name__ == "__main__":
             draw(asset)
     '''
     #asset2 = Asset(3*1.875, 2)
-    asset = Asset(0, 3, 1.875, 3)
-    asset = TwoWayAsset(asset, asset)
+    #asset = Asset(0, 3, 1.875, 3)
+    asset = Asset(-7.5, 4)
+    #asset = TwoWayAsset(asset, asset)
     #asset = TwoWayAsset(asset2, asset)
     for mode in [None, 'disabled', 'hovered', 'focused', 'pressed']:
         draw(asset, "C:/Work/roads/CSUR/img/color.ini", "example", mode=mode)

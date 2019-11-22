@@ -34,11 +34,15 @@
     "m_autoRemove": "false",
     "m_overlayVisible": "true",
     "m_connectGroup": "None",
+    "m_setVehicleFlags": null,
     "m_lanes": {
         "Lane": []
     },
     "m_segments": {
         "Segment": []
     },
-    "m_nodes": []
+    "m_nodes": {
+        "Node": []
+    },
+    "m_UICategory": null
 }

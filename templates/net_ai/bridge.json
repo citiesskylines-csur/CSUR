@@ -13,5 +13,6 @@
     "m_bridgePillarOffset": "0",
     "m_middlePillarOffset": "168",
     "m_doubleLength": "true",
-    "m_canModify": "false"
+    "m_canModify": "false",
+    "m_outsideConnection": "Road Connection"
 }

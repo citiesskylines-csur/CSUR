@@ -162,7 +162,7 @@ def strip(obj, low, high, axis=0):
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.mode_set(mode="OBJECT")
     obj = bpy.context.active_object
-    bpy.ops.object.mode_set(mode="EDIT") 
+    bpy.ops.object.mode_set(mode="EDIT")   
     bpy.ops.mesh.select_mode(type="VERT")
     bpy.ops.mesh.select_all(action="DESELECT")
     bpy.ops.object.mode_set(mode="OBJECT")
@@ -419,7 +419,10 @@ def clean_materials(obj):
     # only search on own object materials
     unique_materials = {}
     remove_slots = []
-    mat_list = [x.material.name for x in bpy.context.object.material_slots]
+    try:
+        mat_list = [x.material.name for x in bpy.context.object.material_slots]
+    except AttributeError:
+        return
 
     # the following only works in object mode
     bpy.ops.object.mode_set(mode='OBJECT')
@@ -454,3 +457,22 @@ def clean_normals(obj):
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.normals_make_consistent(inside=False)
     bpy.ops.object.mode_set(mode='OBJECT')
+
+@selection_safe
+def flip_normals(obj):
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.flip_normals()
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+
+def cleanup_scene():
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.object.delete()
+    # TODO: clean materials
+
+def wipe_materials():
+    for material in bpy.data.materials:
+        material.user_clear()
+        bpy.data.materials.remove(material)

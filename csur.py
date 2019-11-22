@@ -458,7 +458,7 @@ class CSURFactory():
         if prepend_median and lane_left == Segment.widths[Segment.MEDIAN]:
             units.append(Segment.MEDIAN)
             segment_left = 0
-        elif lane_left > -2:
+        elif lane_left > -Segment.widths[Segment.MEDIAN]:
             units.append(CSURFactory.road_in[mode])
             segment_left = lane_left - Segment.widths[CSURFactory.road_in[mode]]
         else:

@@ -13,6 +13,9 @@ N_SHIFT_MAX = 2.0
 DN_TRANS = 1
 DN_RAMP = 1
 
+EXPRESS_LMAX = 3.5
+ALLOWED_UTURN = [3,4,5]
+
 # decorator to check only base roads are passed to the function
 def check_base_road(func): 
     def wrapper(seg1, seg2, *args, **kwargs): 
@@ -248,7 +251,7 @@ class Builder:
         for l in self.comp:
             ntot = len(l.copy())
             for i, r in enumerate(l.copy()[::-1]):
-                if r.is_undivided():
+                if r.is_undivided() and r.get_blocks()[0].nlanes > 1:
                     l.pop(ntot - i - 1)
         for r in undivided_base:
             self.twoway.append(TwoWayAsset(r, r))
@@ -265,7 +268,7 @@ class Builder:
             
             
         # make comp segments with more than 4 lanes two-way
-        for r in flatten(self.comp[3:]):
+        for r in flatten([[x for x in self.comp[2] if x.x0() == 0]] + self.comp[3:]):
             if r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE:
                 self.twoway.append(TwoWayAsset(r, r))
 
@@ -299,6 +302,10 @@ class Builder:
                             self.twoway.append(r_t)
                         else:
                             self.twoway.append(TwoWayAsset(r2, r1))
+        
+        # finally we add centered one-way nC modules with n<max_undivided
+        for i in range(1, self.MAX_UNDIVIDED + 1):
+            self.base[i].append(BaseAsset(-SW.LANE * i / 2, i))
 
     def _find_asym(self):
         # asym (2n+1)DC
@@ -307,13 +314,13 @@ class Builder:
             r = BaseAsset(-SW.MEDIAN, i + 1)
             self.twoway.append(TwoWayAsset(l, r))
         # asym (n-1)Rn-nR
-        for i in range(1, self.max_lane):
+        for i in range(1, self.MAX_UNDIVIDED):
             l = BaseAsset(3 * SW.MEDIAN, i)
             r = BaseAsset(SW.MEDIAN, i + 1)
             self.twoway.append(TwoWayAsset(l, r))
 
         # asym (n-1)Rn-(n+1)Rn
-        for i in range(1, self.max_lane):
+        for i in range(1, self.MAX_UNDIVIDED):
             l = BaseAsset(3 * SW.MEDIAN, i)
             r = BaseAsset(-SW.MEDIAN, i + 2)
             self.twoway.append(TwoWayAsset(l, r))
@@ -344,6 +351,31 @@ class Builder:
                              and x.get_blocks()[0][1].x_left - x.get_blocks()[0][0].x_right == SW.MEDIAN]
         assets['twoway'] = self.twoway
         return assets
+
+    def get_variants(self):
+        if not self.built:
+            raise Exception("Asset pack not built; use self.build() to build")
+        variants = {}
+        assets = self.get_assets()
+        right = lambda x: max([block[-1].x_right for block in x.get_all_blocks()])
+        # ground express, all single-carriageway roads <= 3.5L
+        variants['express'] = [x for x in assets['base'] + assets['shift'] \
+            + assets['trans'] + assets['ramp'] + assets['twoway'] if right(x) <= 3.5 * SW.LANE]
+        # ground compact, all roads w/ traffic lights <= 3.5L
+        variants['compact'] = [x for x in assets['base'] + assets['twoway'] 
+                        if x.has_trafficlight() and right(x) <= 3.5 * SW.LANE]
+        # uturn lanes, with median size 3L, 4L and 5L
+        variants['uturn'] = []
+        # BRT stations, comp segment with 2DC in the middle
+        variants['brt'] = []
+        for x in assets['twoway']:
+            if str(x.left) == str(x.right) and x.right.x0() / SW.LANE in ALLOWED_UTURN:
+                y = Asset(x.right.x0(), x.right.nl(), x.right.x0() - SW.LANE, x.right.nl() + 1)
+                variants['uturn'].append(TwoWayAsset(y, y))
+            if str(x.left) == str(x.right) and x.right.x0() == 0 and len(x.right.nlanes[0]) > 1:
+                y = Asset(x.right.x0(), x.right.nlanes[0], medians=[2,2])
+                variants['brt'].append(TwoWayAsset(y, y))
+        return variants
 
     def get_dependency(self, new_asset):
         if not self.built:

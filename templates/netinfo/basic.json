@@ -1,6 +1,6 @@
 {
 	"m_halfWidth": "32",
-	"m_pavementWidth": "2.75",
+	"m_pavementWidth": "2.675",
 	"m_segmentLength": "64",
 	"m_minHeight": "0",
 	"m_maxHeight": "5",
@@ -34,6 +34,7 @@
 	"m_autoRemove": "false",
 	"m_overlayVisible": "true",
 	"m_connectGroup": "WideTram",
+	"m_setVehicleFlags": null,
 	"m_lanes": {
 		"Lane": []
 	},
@@ -42,5 +43,6 @@
 	},
 	"m_nodes": {
 		"Node": []
-	}
+	},
+	"m_UICategory": "RoadsLarge"
 }

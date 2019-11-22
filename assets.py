@@ -61,6 +61,9 @@ class Asset():
     def nl(self):
         return self.ntot_start()
 
+    def nl_min(self):
+        return min(self.ntot_start(), self.ntot_end())
+
     def center(self):
         return [(b[-1].x_right + b[0].x_left) / 2 for b in self._blocks]
 
@@ -83,7 +86,7 @@ class Asset():
         return Segment.WEAVE in self.get_model('g').start
 
     def has_trafficlight(self):
-        return False
+        return self.center() == [0,0]
 
     def always_undivided(self):
         return self.xleft[0] == 0 and self.xleft[1] == 0
@@ -158,6 +161,9 @@ class TwoWayAsset(Asset):
     
     def nl(self):
         return sum(x.nlanes for x in self._blocks[0])
+    
+    def nl_min(self):
+        return min(self.left.nl_min(), self.right.nl_min())
 
     def get_all_blocks(self):
         # right hand traffic
@@ -167,6 +173,9 @@ class TwoWayAsset(Asset):
 
     def is_twoway(self):
         return True
+
+    def is_symmetric(self):
+        return str(self.right) == str(reverse(self.left))
 
     def has_sidewalk(self):
         return Segment.SIDEWALK in self.right.get_model('g').start
@@ -187,6 +196,9 @@ class TwoWayAsset(Asset):
         if self.roadtype != 'b':
             raise NotImplementedError("central median count only avaiable for base module!")
         return [int(self.left.xleft[0] // SW.MEDIAN), int(self.right.xleft[0] // SW.MEDIAN)]
+
+    def n_median_min(self):
+        return int(min(self.left.xleft) // SW.MEDIAN) + int(min(self.right.xleft) // SW.MEDIAN)
     
     def is_undivided(self):
         return self.get_model('g').undivided
@@ -198,14 +210,16 @@ class TwoWayAsset(Asset):
         return [self.right.nlanes[i][0] - self.left.nlanes[i][0] for i in [0, 1]]
 
     def get_model(self, mode='g'):
+        # disable append median for wide medians in elevated, tunnel and slope modes
+        append_median = False if mode[0] != 'g' and self.n_median_min() > 2 else self.append_median
         if mode[-1] == 'u':
-            seg = TwoWay(self.left.get_model(mode[0]), self.right.get_model(mode[0]), self.append_median)
+            seg = TwoWay(self.left.get_model(mode[0]), self.right.get_model(mode[0]), append_median)
             for u in [seg.left.start, seg.right.start, seg.left.end, seg.right.end]:
                 i = 0
                 while u[i] == Segment.MEDIAN:
                     u[i] = Segment.CHANNEL
         else:           
-            seg = TwoWay(self.left.get_model(mode), self.right.get_model(mode), self.append_median)
+            seg = TwoWay(self.left.get_model(mode), self.right.get_model(mode), append_median)
         return seg
 
     def __str__(self):

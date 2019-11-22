@@ -34,7 +34,7 @@
     "bikepolicy": {
         "m_forwardRequired": "BikeBan", 
         "m_forwardForbidden": "Invert", 
-        "m_backwardRequired": "Invert", 
+        "m_backwardRequired": "Invert BikeBan", 
         "m_backwardForbidden": "None", 
         "m_emptyTransparent": "false", 
         "m_disableBendNodes": "false"
