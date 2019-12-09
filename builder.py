@@ -247,7 +247,6 @@ class Builder:
                     undivided_base.append(r)
         # remove all local-express undivided segments
         # we can always build them using two base segments
-        # TODO: still keep the BRT-related segments with 2DC inside
         for l in self.comp:
             ntot = len(l.copy())
             for i, r in enumerate(l.copy()[::-1]):
@@ -266,31 +265,35 @@ class Builder:
             if r.nl() > 1 or r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE:
                 self.twoway.append(TwoWayAsset(r, r))
             
-            
         # make comp segments with more than 4 lanes two-way
         for r in flatten([[x for x in self.comp[2] if x.x0() == 0]] + self.comp[3:]):
-            if r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE:
+            if r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE and (r.x0() == 0 or r.get_blocks()[0].nlanes > 1):
                 self.twoway.append(TwoWayAsset(r, r))
 
         # find all undivided interface segments
         # need to account for double counting
         undivided_interface = []
+        undivided_interface_symm = []
         for i in range(len(self.shift) - 1, -1, -1):
             if self.shift[i].is_undivided():
                 r = self.shift.pop(i)
                 if r.xleft[0] < r.xleft[1]:
                     undivided_interface.append(r)
+                    undivided_interface_symm.append(r)
         for i in range(len(self.trans) - 1, -1, -1):
             if self.trans[i].is_undivided():
                 r = self.trans.pop(i)
+                undivided_interface.append(r)
                 if r.ntot_start() < r.ntot_end():
-                    undivided_interface.append(r)
+                    undivided_interface_symm.append(r)
         for i in range(len(self.ramp) - 1, -1, -1):
             if self.ramp[i].is_undivided():
                 r = self.ramp.pop(i)
-                if len(r._blocks[0]) == 1:
+                if len(r._blocks[0]) == 1 or len(r._blocks[1]) == 1:   
                     undivided_interface.append(r)
-        for r in undivided_interface:
+                if len(r._blocks[0]) == 1:
+                    undivided_interface_symm.append(r)
+        for r in undivided_interface_symm:
             self.twoway.append(TwoWayAsset(r, r))
 
         if self.ASYM_SLIPLANE:
@@ -341,7 +344,7 @@ class Builder:
             raise Exception("Asset pack not built; use self.build() to build")
         assets = {}
         assets['base'] = flatten(self.base)
-        assets['comp'] = flatten(self.comp[3:])
+        assets['comp'] = [x for x in flatten(self.comp[3:]) if not x.is_undivided()]
         assets['shift'] = self.shift   
         assets['trans'] = self.trans
         assets['ramp'] = [x for x in self.ramp if x.nblock() == 3]
@@ -453,6 +456,10 @@ class Builder:
             elif road.roadtype == 'r':
                 self.ramp.append(road)
         return dependencies
+
+
+def get_packages(assets):
+    pass
         
 
         

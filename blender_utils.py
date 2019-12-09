@@ -277,7 +277,7 @@ SCALE_MODE controls how the object is deformed.
 1: the object is scaled as a whole. Used on structural pieces like slope arches and elevated decks.
 2: same behavior as 1 but only places non-rectangular units. Used on placing triangular channelizing lines.
 '''
-def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=False, scale_mode=0, interpolation='bezier4'):
+def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=False, scale_mode=0, interpolation=INTERP_TYPE):
     xs_left = xs_left.copy()
     xs_right = xs_right.copy()
     if copy:

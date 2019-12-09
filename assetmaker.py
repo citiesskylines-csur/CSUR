@@ -127,13 +127,18 @@ class AssetMaker:
         name = self.assetdata['name']
         # make model
         seg_lanes, seg_struc = self.modeler.make(seg, mode)
-        if asset.is_twoway() and asset.roadtype=='b' and asset.center()[0] == 0:
-            preset_lane = 'default' if asset.left.nl() == asset.right.nl() else 'default_asym'
-            preset_struc = 'default' if asset.left.nl() == asset.right.nl() else 'default_nostop'
-        else:
-            preset_lane = preset_struc = 'default_nostop'
-        if mode[0] == 's':
+        if mode[0] == 'g':
+            if asset.is_twoway() and asset.has_trafficlight():
+                preset_lane = 'default' if asset.left.nl() == asset.right.nl() else 'default_asym'
+                preset_struc = 'default' if asset.left.nl() == asset.right.nl() else 'default_nostop'
+            else:
+                preset_lane = preset_struc = 'default' if asset.has_busstop() else 'default_nostop'
+        elif mode[0] == 's':
+            preset_lane = 'default'
             preset_struc = 'none'
+        else:
+            preset_lane = 'default'
+            preset_struc = 'default'
         # save lane model
         self.__add_segment('%s_%slanes' % (name, mode), seg_lanes, mode=mode[0], preset=preset_lane, texmode='lane')
         # save structure model, also handles the slope case
@@ -221,7 +226,7 @@ class AssetMaker:
     
 
     def __create_dcnode(self, asset, mode, target_median=None, asym_mode=None):
-        MW = 1.875
+        MW = SW.MEDIAN
         seg = asset.get_model(mode)
         if target_median is None:
             medians = None
@@ -231,18 +236,20 @@ class AssetMaker:
             medians = [-int(target_median[:split])*MW, int(target_median[split:])*MW]
         if asym_mode != 'invert':
             if asym_mode == 'restore':
-                dcnode, target_median = self.modeler.make_asym_restore_node(seg)
-                print(target_median)
+                dcnode, side, target_median = self.modeler.make_asym_restore_node(seg)
+                #print(target_median)
                 name = '%s_restorenode' % self.assetdata['name']
             elif asym_mode == 'expand':
-                dcnode, target_median = self.modeler.make_asym_invert_node(seg, halved=True) 
-                print(target_median)
+                dcnode, side, target_median = self.modeler.make_asym_invert_node(seg, halved=True) 
+                #print(target_median)
                 name = '%s_expandnode' % self.assetdata['name']
             else:
-                dcnode = self.modeler.make_dc_node(seg, target_median=medians)
+                dcnode, side = self.modeler.make_dc_node(seg, target_median=medians)
                 name = '%s_dcnode_%s' % (self.assetdata['name'], target_median)
             connectgroup = self.get_connectgroup(target_median)
             self.__add_node(name, dcnode, preset='direct', connectgroup=connectgroup, texmode='lane')
+            if side:
+                self.__add_node(name + '_side', side, preset='direct_nointersection', connectgroup=connectgroup, texmode='lane')
         else:
             # note that "bend node" is actually a segment in the game
             asym_forward, asym_backward = self.modeler.make_asym_invert_node(seg, halved=False)
@@ -250,13 +257,14 @@ class AssetMaker:
             self.__add_segment('%s_asymbackward' % self.assetdata['name'], asym_backward, mode='g', preset='asymbackward', texmode='lane')
 
     def __create_local_express_dcnode(self, asset, target_median=None):
-        MW = 1.875
         seg = asset.get_model('g')
         dlanes = (target_median - int(asset.right.get_all_blocks()[0][0].x_right / SW.MEDIAN)) // 2
-        dcnode = self.modeler.make_local_express_dc_node(seg, dlanes)
+        dcnode, side = self.modeler.make_local_express_dc_node(seg, dlanes)
         le_connectgroup = self.connectgroup_side[target_median]
         name = '%s_dcnode_le%s' % (self.assetdata['name'], target_median)
         self.__add_node(name, dcnode, preset='direct', connectgroup=le_connectgroup, texmode='lane')
+        if side:
+            self.__add_node(name + '_side', side, preset='direct_nointersection', connectgroup=le_connectgroup, texmode='lane')
         
     def __create_brtnode(self, asset):
         if not asset.is_twoway():
@@ -270,14 +278,15 @@ class AssetMaker:
                                     blocks[1].x_left - SW.MEDIAN, blocks[1].x_left], blocks[1].nlanes)
         dc_seg = csur.CSURFactory.fill_median(seg_l, seg_r, 's')
         dc_seg = csur.TwoWay(dc_seg.reverse(), dc_seg)
-        model = self.modeler.convert_to_dcnode(dc_seg, keep_bikelane=False)
+        model, side = self.modeler.convert_to_dcnode(dc_seg, unprotect_bikelane=False)
         self.__add_node('%s_brtnode' % self.assetdata['name'], model, 
                         preset='direct', 
                         connectgroup=self.get_connectgroup(self.__get_mediancode(asset)), 
                         texmode='lane')
+        self.__add_node('%s_brtnode_side' % self.assetdata['name'], side, preset='direct_nointersection',
+                    connectgroup=self.get_connectgroup(self.__get_mediancode(asset)), texmode='lane')
         
 
-    # TODO: change speed limits
     def __create_lanes(self, asset, mode, seg=None, reverse=False, brt=False):
         modename = self.get_basename(mode)
         if asset.is_twoway() and not seg:
@@ -304,7 +313,7 @@ class AssetMaker:
                     else:
                         prop_set = self.props["intersection_median"]
                         xl = xr = median_pos
-                    prop_utils.add_intersection_props(median_lane, xr, prop_set)
+                    prop_utils.add_intersection_props(median_lane, xr, prop_set) 
                     prop_utils.add_intersection_props(median_lane, xl, prop_utils.flip(prop_set))
                 self.assetdata[modename]['m_lanes']['Lane'].append(median_lane)
             self.__create_lanes(asset, mode, seg=seg.right, reverse=False, brt=brt)
@@ -338,20 +347,30 @@ class AssetMaker:
                     pos = (pos_start + pos_end) / 2
                     if u_start == Segment.LANE:
                         lane = deepcopy(self.lanes['car'])
+                        # keeps a bus stop lane pointer
                         if not (busstop_lane and brt):
                             busstop_lane = lane
+                        # a special case is that a left bus stop is allowed
+                        # when the leftmost unit is a sidewalk
+                        if mode[0] == 'g' and not asset.is_twoway() and asset.has_busstop() and i == len(csur.CSURFactory.roadside[mode]) \
+                            and seg.start[0] == Segment.SIDEWALK and seg.start[i - 1] != Segment.LANE:
+                                lane["m_stopOffset"] = "-3"
+                        # remove arrows for shift and transition modules
+                        if asset.roadtype in 'st':
+                            lane["m_laneProps"]["Prop"] = []
                         # change prop positions in the car lane
                         for p in lane["m_laneProps"]["Prop"]:
                             deltax = (pos_end - pos_start) * float(p["m_segmentOffset"]) / 2
                             p["m_position"]["float"][0] = str(float(p["m_position"]["float"][0]) + deltax)
                     elif u_start == Segment.MEDIAN and brt and not brt_sidewalk and i > 0:
                         lane = deepcopy(self.lanes['ped'])
-                        pos += SW.MEDIAN / 2
+                        lane["m_width"] = "2.5"
+                        pos += SW.MEDIAN / 2 - 1.5
                         brt_sidewalk = True
                     elif u_start == Segment.BIKE:
                         lane = deepcopy(self.lanes['bike'])
                         # change bike lane direction to BOTH if the road has two BIKE units
-                        if sum([u == Segment.BIKE for u in u_start]) > 1:
+                        if sum([u == Segment.BIKE for u in seg.start]) > 1:
                             lane["m_direction"] = "Both"
                             lane["m_finalDirection"] = "Both"
                     elif u_start == Segment.SIDEWALK:
@@ -410,11 +429,27 @@ class AssetMaker:
                             prop_utils.add_intersection_props(lane, prop_pos, self.props["railway_crossing"], height=0)
                         # add bus stop props
                         if asset.has_busstop():
-                            prop_pos = (seg.x_start[-1] + seg.x_start[-2]) / 2 - pos
-                            if Segment.BIKE not in u_start:
-                                prop_pos += 5
+                            if i == 0:
+                                prop_pos = - (seg.x_start[0] + seg.x_start[1]) / 2 + pos
+                            else:
+                                prop_pos = (seg.x_start[-1] + seg.x_start[-2]) / 2 - pos
+                            if Segment.BIKE not in seg.start:
+                                prop_pos += 4.5
                             prop_utils.add_props(lane, prop_pos, self.props["busstop"])
-
+                    elif mode == 'ge' and u_start == Segment.CURB:
+                        lane = deepcopy(self.lanes['barrier'])
+                        '''
+                        light = deepcopy(self.props["light_side"])
+                        if i == 0:
+                            light = prop_utils.flip(light)
+                        if pos_start != pos_end:
+                            for p in light:
+                                p["m_repeatDistance"] = "0"
+                        prop_utils.add_props(lane, 0, light, height=0.15)
+                        '''
+                        if asset.has_trafficlight():
+                            prop_utils.add_intersection_props(lane, 0, self.props["intersection_side"], height=0)
+                            prop_utils.add_intersection_props(lane, 0, self.props["railway_crossing"], height=0)
                     elif mode[0] in "et" and u_start == Segment.BARRIER:
                         # only use left barrier light if width >= 5L
                         if i > 0 or (max(seg.width()) > 5 * SW.LANE and mode[0] == 'e') or (max(seg.width()) > 2 * SW.LANE and mode[0] == 't'):
@@ -435,15 +470,25 @@ class AssetMaker:
                         if pos == 0:
                             pos = 0.05
                         lane["m_position"] = str(-pos if reverse else pos)
-                        if reverse or (u_start == Segment.SIDEWALK and i == 0):
+                        if reverse or (i == 0 and (u_start == Segment.SIDEWALK or u_start == u_end == Segment.CURB)):
                             lane = prop_utils.flip_lane(lane)                                  
                         self.assetdata[modename]['m_lanes']['Lane'].append(lane)
             # applies stop offset
-            if mode[0] == 'g':
+            if mode[0] == 'g' and asset.has_busstop() and Segment.SIDEWALK in seg.start:
                 if not brt:
                     busstop_lane["m_stopOffset"] = "-3" if reverse else "3"
                 else:
                     busstop_lane["m_stopOffset"] = "-0.3" if reverse else "0.3"
+                    busstop_lane["m_laneType"] = "TransportVehicle"
+            # combine barrier lanes with the closest traffic lane
+            lanes = self.assetdata[modename]['m_lanes']['Lane']
+            lanes.sort(key=lambda l: float(l["m_position"]))
+            if lanes[0]["m_laneType"] == "None":
+                prop_utils.combine_props(lanes[0], lanes[1])
+                lanes.pop(0)
+            if lanes[-1]["m_laneType"] == "None":
+                prop_utils.combine_props(lanes[-1], lanes[-2])
+                lanes.pop(-1)
 
     def __get_mediancode(self, asset):
         if not asset.is_twoway():
@@ -475,12 +520,12 @@ class AssetMaker:
             coeff = 2 * nl
         else:
             coeff = 4 * nl
-        self.assetdata['%sAI' % modename]["m_constructionCost"] = str(coeff * BASE_CONSTRUCT_COST)
-        self.assetdata['%sAI' % modename]["m_maintenanceCost"] = str(coeff * BASE_MAINTAIN_COST)
+        self.assetdata['%sAI' % modename]["m_constructionCost"] = str(int(coeff * BASE_CONSTRUCT_COST))
+        self.assetdata['%sAI' % modename]["m_maintenanceCost"] = str(int(coeff * BASE_MAINTAIN_COST))
                  
 
 
-    def __write_info(self, asset, mode):
+    def __write_info(self, asset, mode, uturn=False):
         seg = asset.get_model(mode)
         modename = self.get_basename(mode)
         info = self.assetdata[modename]
@@ -538,7 +583,7 @@ class AssetMaker:
                     info["m_flattenTerrain"] = "false"
                     info["m_createPavement"] = "false"
             # for any ground nodeless road corner offset and clip segment the same as one-way modules
-            if seg.roadtype() != 'b':
+            if seg.roadtype() != 'b' and not uturn:
                 info["m_createPavement"] = "false"
                 info["m_pavementWidth"] = "-3"
                 info["m_enableBendingNodes"] = "false"
@@ -578,7 +623,7 @@ class AssetMaker:
             info["m_UICategory"] = category
         # special: change segmentlength to 60 for shift segments 
         if not asset.is_twoway() and asset.roadtype == 's':
-            info["m_segmentLength"] = ["60"]
+            info["m_segmentLength"] = "62.5"
 
         # speed limit
         # TODO: apply speed limit to each car lane
@@ -610,9 +655,9 @@ class AssetMaker:
             if mode == "g":
                 if asset.is_twoway() and asset.is_undivided():
                     return self.skins['light']['side_gnd_large']
-                elif min(asset.get_dim()) > 10 * SW.LANE:
+                elif min(asset.get_dim()) > 10 * SW.LANE or min(asset.get_dim()) <= 4 * SW.LANE:
                     return self.skins['light']['side_gnd_large']
-                # divided roads narrower than 5L does not need side light
+                # divided roads does not need side light
                 elif asset.is_twoway() and min(asset.get_dim()) < 6 * SW.LANE:
                     return None
                 else:
@@ -634,16 +679,14 @@ class AssetMaker:
         modename = self.get_basename(mode)
         for i, lane in enumerate(self.assetdata[modename]['m_lanes']['Lane']):
             # lights or trees should always be placed on a line with direction BOTH
-            # TODO: remove barrier lanes and move lights into car lanes,
-            # this requires to check also the first and last lane
             if i == 0 or i == len(self.assetdata[modename]['m_lanes']['Lane']) - 1 or lane["m_direction"] == "Both":
                 removed = []
                 for i, prop in enumerate(lane["m_laneProps"]["Prop"]):
                     if prop["m_prop"] and prop["m_prop"][:5] == "CSUR@":
                         split = prop["m_prop"][5:].lower().split(':')
                         if split[0] == "light":
-                            # remove left side light for roads < 4DC
-                            if min(asset.get_dim()) < 4 * SW.LANE and float(lane["m_position"]) < -SW.LANE:
+                            # remove left side light for roads <= 4DC
+                            if min(asset.get_dim()) <= 4 * SW.LANE and float(lane["m_position"]) < 0:
                                 key = None
                             else:
                                 key = self.__get_light(asset, split[1], mode[0])             
@@ -676,9 +719,9 @@ class AssetMaker:
             else:
                 blocks = asset.get_all_blocks()[0]
                 if blocks[0].x_left * blocks[-1].x_right < 0:
-                    pillar = self.skins['pillar']['twoway'][int(min(asset.get_dim()) / SW.LANE / 2) - 1]
+                    pillar = self.skins['pillar']['oneway'][int(min(asset.get_dim()) / SW.LANE / 2) - 1]
                 else:
-                    pillar = None
+                    pillar = [None, '0']
             self.assetdata['elevatedAI']['m_bridgePillarInfo'] = pillar[0]
             self.assetdata['elevatedAI']['m_bridgePillarOffset'] = str(pillar[1])
 
@@ -688,11 +731,11 @@ class AssetMaker:
         self.modeler.cleanup()
         self.assets_made.append(self.assetdata['name'])
 
-    def write_thumbnail(self, asset):
+    def write_thumbnail(self, asset, mode='g'):
         path = os.path.join(self.output_path, self.assetdata['name'])
-        draw(asset, os.path.join(self.workdir, 'img/color.ini'), path)
-        for mode in ['disabled', 'hovered', 'focused', 'pressed']:
-            draw(asset, os.path.join(self.workdir, 'img/color.ini'), path, mode=mode)
+        draw(asset, mode, os.path.join(self.workdir, 'img/color.ini'), path)
+        for thumbmode in ['disabled', 'hovered', 'focused', 'pressed']:
+            draw(asset, mode, os.path.join(self.workdir, 'img/color.ini'), path, thumbmode=thumbmode)
 
     def __create_all_nodes(self, asset, mode):
         self.__create_node(asset, mode)
@@ -746,11 +789,11 @@ class AssetMaker:
         if asset.roadtype == 'b' and asset.center()[0] == 0:
             # first mode is ground
             self.__create_all_nodes(asset, modes[0])
-            # only allow bus stops on ground normal
-            if modes[0] in ['g', 'gc']: 
-                self.__create_stop(asset, modes[0], 'single')
-                if asset.is_twoway():
-                    self.__create_stop(asset, modes[0], 'double') 
+        # only allow bus stops on ground normal
+        if asset.has_busstop() and modes[0] in ['g', 'gc']: 
+            self.__create_stop(asset, modes[0], 'single')
+            if asset.is_twoway() or asset.center() == [0, 0]:
+                self.__create_stop(asset, modes[0], 'double') 
         # write data
         for mode in modes:
             self.__create_lanes(asset, mode)
@@ -770,9 +813,9 @@ class AssetMaker:
         self.__create_segment(asset, mode)
         if node and asset.roadtype == 'b' and asset.center()[0] == 0:
             self.__create_all_nodes(asset, mode)
-        if mode in ['g', 'gc']: 
+        if asset.has_busstop() and mode in ['g', 'gc']: 
             self.__create_stop(asset, mode, 'single')
-            if asset.is_twoway():
+            if asset.is_twoway() or asset.center() == [0, 0]:
                 self.__create_stop(asset, mode, 'double') 
         self.__create_lanes(asset, mode)
         self.__write_netAI(asset, mode)
@@ -780,7 +823,7 @@ class AssetMaker:
         if mode[0] in 'get':
             self.__apply_skin(asset, mode)
         self.writetoxml(asset)
-        self.write_thumbnail(asset)
+        self.write_thumbnail(asset, mode)
         return self.assetdata
 
     def make_uturn(self, asset):
@@ -788,14 +831,15 @@ class AssetMaker:
         self.assetdata['name'] += ' uturn'
         self.__create_uturn_segment(asset)
         # use a delegate twoway asset to create node
-        al = assets.Asset(asset.left.xleft[1], asset.left.nlanes[1])
+        #al = assets.Asset(asset.left.xleft[1], asset.left.nlanes[1])
         ar = assets.Asset(asset.right.xleft[1], asset.right.nlanes[1])
-        delegate = assets.TwoWayAsset(al, ar)
+        delegate = assets.TwoWayAsset(ar, ar)
         self.__create_node(delegate, 'g')
         self.__create_lanes(delegate, 'g')
-        self.__write_netAI(asset, 'g')
-        self.__write_info(asset, 'g')
+        self.__write_netAI(delegate, 'g')
+        self.__write_info(asset, 'g', uturn=True)
         self.__apply_skin(asset, 'g')
+        self.assetdata["basic"]["m_connectGroup"] = self.get_connectgroup(self.__get_mediancode(asset))
         self.writetoxml(asset)
         self.write_thumbnail(asset)
         return self.assetdata

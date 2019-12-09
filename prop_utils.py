@@ -120,9 +120,9 @@ Adds a set of intersection props into a LANE at the global position ABS_POS.
 those props will be added as non-inverted as well as inverted versions
 to use on both left- and right-hand traffics.
 '''
-def add_intersection_props(lane, abs_pos, props):
+def add_intersection_props(lane, abs_pos, props, height=None):
     props_noinv, props_inv = apply_invert(props)
-    return add_props(lane, abs_pos, props_noinv + props_inv)
+    return add_props(lane, abs_pos, props_noinv + props_inv, height=height)
 
 '''
 Flips a lane to the other side of the road.
@@ -164,4 +164,18 @@ into the TARGET lane.
 '''
 
 def combine_props(source, target):
-    pass
+    props = source["m_laneProps"]["Prop"]
+    source_lanepos = float(source["m_position"])
+    if source["m_direction"] == "Backward":
+        props = flip(props)
+        #source_lanepos *= -1
+    target_lanepos = float(target["m_position"])
+    #if target["m_direction"] == "Backward":
+        #target_lanepos *= -1
+    y_diff = float(target["m_verticalOffset"]) - float(source["m_verticalOffset"])
+    props = move(props, source_lanepos - target_lanepos, axis=0)
+    props = move(props, y_diff, axis=1)
+    if target["m_direction"] == "Backward":
+        props = flip(props)
+    target["m_laneProps"]["Prop"] += props
+    

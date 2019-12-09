@@ -73,20 +73,23 @@ class Asset():
     def is_twoway(self):
         return False
 
-    def has_sidewalk(self):
-        return Segment.SIDEWALK in self.get_model('g').start
+    def has_sidewalk(self, mode='g'):
+        return Segment.SIDEWALK in self.get_model(mode).start
 
-    def has_bikelane(self):
-        return Segment.BIKE in self.get_model('g').start
+    def has_bikelane(self, mode='g'):
+        return Segment.BIKE in self.get_model(mode).start
 
     def has_busstop(self):
-        return False
+        return self.roadtype == 'b'
 
     def is_roundabout(self):
         return Segment.WEAVE in self.get_model('g').start
 
     def has_trafficlight(self):
-        return self.center() == [0,0]
+        return self.roadtype == 'b' and self.center() == [0,0]
+
+    def reverse(self):
+        return Asset(self.xleft[1], self.nlanes[1], self.xleft[0], self.nlanes[0], self.medians)
 
     def always_undivided(self):
         return self.xleft[0] == 0 and self.xleft[1] == 0
@@ -128,7 +131,9 @@ class Asset():
 
    
 class BaseAsset(Asset):
-    def __init__(self, x0_start, *nlanes_start, median=1):
+    def __init__(self, x0_start, *nlanes_start, median=None):
+        if median is None:
+            median = 1
         super().__init__(x0_start, nlanes_start, medians=[median, median])
 
     def get_blocks(self):
@@ -144,7 +149,7 @@ class BaseAsset(Asset):
 class TwoWayAsset(Asset):
     def __init__(self, left, right, mirror=True, append_median=True):
         if mirror:
-            self.left = reverse(left)
+            self.left = left.reverse()
             self.left.roadtype = left.roadtype
         else:
             self.left = left
@@ -175,26 +180,23 @@ class TwoWayAsset(Asset):
         return True
 
     def is_symmetric(self):
-        return str(self.right) == str(reverse(self.left))
+        return str(self.right) == str(self.left.reverse())
 
-    def has_sidewalk(self):
-        return Segment.SIDEWALK in self.right.get_model('g').start
+    def has_sidewalk(self, mode='g'):
+        return Segment.SIDEWALK in self.right.get_model(mode).start
 
-    def has_bikelane(self):
-        return Segment.BIKE in self.right.get_model('g').start
+    def has_bikelane(self, mode='g'):
+        return Segment.BIKE in self.right.get_model(mode).start
 
     def is_roundabout(self):
         return False
-
-    def has_trafficlight(self):
-        return self.roadtype == 'b'
-    
+  
     def has_busstop(self):
-        return str(self.left) == str(self.right)
+        return self.roadtype == 'b' and self.is_symmetric()
 
     def n_central_median(self):
-        if self.roadtype != 'b':
-            raise NotImplementedError("central median count only avaiable for base module!")
+        #if self.roadtype != 'b':
+        #    raise NotImplementedError("central median count only avaiable for base module!")
         return [int(self.left.xleft[0] // SW.MEDIAN), int(self.right.xleft[0] // SW.MEDIAN)]
 
     def n_median_min(self):
@@ -210,8 +212,8 @@ class TwoWayAsset(Asset):
         return [self.right.nlanes[i][0] - self.left.nlanes[i][0] for i in [0, 1]]
 
     def get_model(self, mode='g'):
-        # disable append median for wide medians in elevated, tunnel and slope modes
-        append_median = False if mode[0] != 'g' and self.n_median_min() > 2 else self.append_median
+        # disable append median for symmetric wide medians in elevated, tunnel and slope modes
+        append_median = False if mode[0] != 'g' and self.is_symmetric() and self.n_median_min() > 2 else self.append_median
         if mode[-1] == 'u':
             seg = TwoWay(self.left.get_model(mode[0]), self.right.get_model(mode[0]), append_median)
             for u in [seg.left.start, seg.right.start, seg.left.end, seg.right.end]:

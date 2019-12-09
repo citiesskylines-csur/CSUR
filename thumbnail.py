@@ -186,7 +186,7 @@ def make_axis(canvas, asset, config, rspace=RSPACE, thumbmode=None, draw_referen
 
 
 
-def make_sidebar(canvas, asset, config, lspace=LSPACE/2):
+def make_sidebar(canvas, asset, mode, config, lspace=LSPACE/2):
     margin = 0.02
     bottom = 0.85
     width = 0.12
@@ -196,10 +196,10 @@ def make_sidebar(canvas, asset, config, lspace=LSPACE/2):
     canvas.add_rectangle((0, bottom), (width, bottom + bar_height), Color(1.0))
     x = lspace + icon_size / 2
     y_cur = bottom - (icon_size + margin) * n_icons + icon_size / 2
-    alpha = 1 if asset.has_sidewalk() else 0.15
+    alpha = 1 if asset.has_sidewalk(mode) else 0.15
     canvas.add_image(os.path.join(ROOT, "img/sidewalk.png"), (x, y_cur), width=icon_size, valign=Anchor.MIDDLE, halign=Anchor.CENTER, alpha=alpha)
     y_cur += icon_size + margin
-    alpha = 1 if asset.has_bikelane() else 0.15
+    alpha = 1 if asset.has_bikelane(mode) else 0.15
     canvas.add_image(os.path.join(ROOT, "img/bike.png"), (x, y_cur), width=icon_size, valign=Anchor.MIDDLE, halign=Anchor.CENTER, alpha=alpha)
     y_cur += icon_size + margin
     alpha = 1 if asset.is_twoway() else 0.15
@@ -209,7 +209,7 @@ def make_sidebar(canvas, asset, config, lspace=LSPACE/2):
     canvas.add_image(os.path.join(ROOT, "img/trafficlight.png"), (x, y_cur), width=icon_size, valign=Anchor.MIDDLE, halign=Anchor.CENTER, alpha=alpha)
     y_cur += icon_size + margin
 
-def draw(asset, configfile, filepath=None, mode=None):
+def draw(asset, mode, configfile, filepath=None, thumbmode=None):
     config = configparser.ConfigParser()
     config.read(configfile)
     roadtype = typename[asset.roadtype]
@@ -217,14 +217,14 @@ def draw(asset, configfile, filepath=None, mode=None):
     canvas = Canvas(SIZE, SIZE)
 
     make_panel(canvas, roadtype, str(asset), config)
-    make_sidebar(canvas, asset, config)
+    make_sidebar(canvas, asset, mode, config)
     if asset.is_twoway() and not asset.is_undivided() and asset.is_symmetric():
-        make_axis(canvas, asset.right, config, thumbmode=mode)
+        make_axis(canvas, asset.right, config, thumbmode=thumbmode)
     else:
-        make_axis(canvas, asset, config, thumbmode=mode)
+        make_axis(canvas, asset, config, thumbmode=thumbmode)
 
     if filepath:
-        suffix = '_' + mode + '.png' if mode else '_thumb.png'
+        suffix = '_' + thumbmode + '.png' if thumbmode else '_thumb.png'
         canvas.save(filepath + suffix)
     else:
         canvas.save(os.path.join(ROOT, "thumbnails/%s" % asset + suffix))
@@ -256,5 +256,5 @@ if __name__ == "__main__":
     #asset = TwoWayAsset(asset, asset)
     #asset = TwoWayAsset(asset2, asset)
     for mode in [None, 'disabled', 'hovered', 'focused', 'pressed']:
-        draw(asset, "C:/Work/roads/CSUR/img/color.ini", "example", mode=mode)
+        draw(asset, 'g', "C:/Work/roads/CSUR/img/color.ini", "example", mode=mode)
     #'''

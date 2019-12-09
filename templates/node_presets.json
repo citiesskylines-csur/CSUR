@@ -41,6 +41,13 @@
 		"m_directConnect": "true", 
 		"m_emptyTransparent": "false"
 	},
+	"direct_nointersection": {
+		"m_flagsRequired": "None", 
+		"m_flagsForbidden": "TrafficLights Bend CustomTrafficLights", 
+		"m_connectGroup": "DoubleTrain", 
+		"m_directConnect": "true", 
+		"m_emptyTransparent": "false"
+	},
 	"nojunction": {
 		"m_flagsRequired": "None", 
 		"m_flagsForbidden": "Junction", 
