@@ -39,6 +39,14 @@
         "m_emptyTransparent": "false", 
         "m_disableBendNodes": "false"
     },
+    "no_bikepolicy": {
+        "m_forwardRequired": "None", 
+        "m_forwardForbidden": "Invert BikeBan", 
+        "m_backwardRequired": "Invert", 
+        "m_backwardForbidden": "BikeBan", 
+        "m_emptyTransparent": "false", 
+        "m_disableBendNodes": "false"
+    },
     "slope_down": {
         "m_forwardRequired": "Invert", 
         "m_forwardForbidden": "None", 

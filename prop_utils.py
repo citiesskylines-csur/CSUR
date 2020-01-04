@@ -11,8 +11,8 @@ Wrapper function to allow operating the function on lists.
 def list_op(func):
     def wrapper(obj, *args, **kwargs):
         if isinstance(obj, list):
-            for o in obj:
-                func(o, *args, **kwargs)
+            for i, o in enumerate(obj):
+                obj[i] = func(o, *args, **kwargs)
             return obj
         else:
             return func(obj, *args, **kwargs)
@@ -42,7 +42,9 @@ side of the road. Flips angles, start/end flags, and segment offset
 (relative z-position). Used on lane with Both directions.
 '''
 @list_op
-def flip(prop, mirror_position=True):
+def flip(prop, in_place=False, mirror_position=True):
+    if not in_place:
+        prop = deepcopy(prop)
     prop["m_startFlagsRequired"], prop["m_endFlagsRequired"] \
         = prop["m_endFlagsRequired"], prop["m_startFlagsRequired"]
     prop["m_startFlagsForbidden"], prop["m_endFlagsForbidden"] \
@@ -89,7 +91,7 @@ def apply_invert(props):
                     flags += ["Inverted"]
             newprop[key] = " ".join(flags)
             if i == 1:
-                newprop = flip(newprop, mirror_position=False)
+                flip(newprop, mirror_position=False, in_place=True)
                 # also need to mirror traffic lights
                 if newprop["m_prop"] in ["Traffic Light 01", "Traffic Light 02"]:
                     newprop["m_prop"] += " Mirror"
@@ -139,7 +141,7 @@ def flip_lane(lane, in_place=True):
         lane["m_direction"] = "Forward"
         lane['m_finalDirection'] = "Forward"
     elif lane["m_direction"] == "Both":
-        lane["m_laneProps"]["Prop"] = flip(lane["m_laneProps"]["Prop"])
+        flip(lane["m_laneProps"]["Prop"], in_place=True)
     else:
         raise NotImplementedError
     return lane

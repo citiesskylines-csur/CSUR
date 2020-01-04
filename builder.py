@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from assets import Asset, BaseAsset, TwoWayAsset, reverse
 from csur import offset_x
 from csur import StandardWidth as SW
@@ -81,13 +82,13 @@ def connect(start, end):
         return Asset(x0_l, n0, x1_l, n1, medians=n_medians)
             
 
-def find_access(nlane, base, name=None, codes=['5', '5P', '6P', '7P', '8P']):
+def find_access(nlane, base, name=None, codes=['3', '3P', '4P', '5P', '6P']):
     access_roads = []
     nlane_g = base.get_blocks()[0].nlanes
     x0 = base.x0()
     offsets = [offset_x(code) for code in codes]
     for i_a in range(2, nlane_g - nlane):
-        if x0 + i_a * SW.LANE + SW.MEDIAN in offsets:
+        if x0 + (i_a + nlane - 1) * SW.LANE + SW.MEDIAN in offsets:
             access_roads.append(Asset(x0, nlane_g, x0, [i_a - 1, nlane, nlane_g - nlane - i_a]))
     return access_roads
 
@@ -232,7 +233,7 @@ class Builder:
         # 1 to 3 ramp
         access = []
         for x in flatten(self.base[4:]):
-            access.extend(find_access(1, x, codes=self.codes[0])) 
+            access.extend(find_access(1, x, codes=self.codes[0]))
             access.extend(find_access(2, x, codes=self.codes[1]))
         access.extend([reverse(a) for a in access])
         self.ramp.extend(access)
@@ -457,9 +458,190 @@ class Builder:
                 self.ramp.append(road)
         return dependencies
 
+'''
+Assembles the asset dictionary into multiple packages.
+R1: Roads & Streets Pack 
+containing 
+    one-way 1C--3C, two-way 2DC, 4DC, 4DR--10DR, 6DR2DR4P, 6DR4DR5P and 8DR2DR5P
+dependency: None
 
-def get_packages(assets):
-    pass
+R2: Roads & Streets Wide Pack
+containing
+    4C, 6DC, 2DR, 2DR2--8DR5, 4DR4DR4P, and 4DR6DR5P
+dependency: R1
+
+R3: Roads & Streets Extended Pack
+containing
+    all other symmetric two-way roads
+dependency: R1, R2
+
+R4: Roads & Streets Asymmetric Pack 
+containing
+    all asymmetric two-way roads
+dependency: R1, R2
+
+M1: Modular Interchanges Lite Pack 
+containing
+    base: 1R3--1R4P, 2R--2R5P, (3--5)R
+    shift: 2R--2R5P
+    trans: all between base, 4DR4P=6DR4P uturn, 4DR5P=6DR5P uturn
+    ramp: 2R4P, 3R--5R, 3R2R5P<=>4R1R5P
+dependency: R1
+
+M2: Modular Interchanges Full Pack 
+containing:
+    all modules strictly below 5R, divided, not present in M1
+dependency: M1
+
+M3: Modular Interchanges Slim Pack 
+containing:
+    all modules strictly undivided
+dependency: M1
+
+M4: Modular Interchanges 5-Lane Extension 
+containing:
+    all modules strictly below 6R and not present in M1--M3,
+    except for 2 to 3 ramps
+dependency: R2, M2
+
+M5: Modular Interchanges 6-Lane Extension
+containing:
+    all modules below or equal 7R and not present in M1--M4,
+    except for 2 to 3 ramps,
+dependency: R3, M2
+
+M6: Modular Interchanges Multi-Fork Pack  
+containing:
+    all 2 to 3 ramp modules
+dependency: M5
+
+B: BRT Pack / 快速公交包
+containing all roads associated with BRT.
+dependency: None
+
+
+'''
+def get_packages(assets, variants):
+    packages = {}
+    for i in range(1, 5):
+        packages['R%i'%i] = []
+    for i in range(1, 7):
+        packages['M%i'%i] = []
+    packages['B'] = []
+
+    assets = deepcopy(assets)
+    variants = deepcopy(variants)
+
+    x_max = lambda a : max(a._blocks[0][-1].x_right, a._blocks[1][-1].x_right)
+    
+    for a in assets['base'] + assets['comp']:
+        if a.x0() + a.x1() == 0:
+            packages['R1' if a.nl() < 4 else 'R2'].append(a)
+        elif a.nl() == 1 and 2.5 * SW.LANE <= a.x0() <= 4.5 * SW.LANE:
+            packages['M1'].append(a)
+        elif a.nblock() == 2 and a.nl() == 2 and a.x0() <= 4.5 * SW.LANE:
+            packages['M1'].append(a)
+        elif a.nblock() == 2 and 3 <= a.nl() <= 5 and a.x0() == 0.5 * SW.LANE:
+            packages['M1'].append(a)
+        elif a.x1() < 5.5 * SW.LANE:
+            packages['M2'].append(a)
+        elif a.x1() <= 6.5 * SW.LANE:
+            packages['M4'].append(a)
+        else:
+            packages['M5'].append(a)
+
+    for a in assets['shift']:
+        if a.nl_min() == 2 and x_max(a) <= 5.5 * SW.LANE:
+            packages['M1'].append(a)
+        elif x_max(a) < 5.5 * SW.LANE:
+            packages['M2'].append(a)
+        elif x_max(a) <= 6.5 * SW.LANE:
+            packages['M4'].append(a)
+        else:
+            packages['M5'].append(a)
+
+    for a in assets['trans']:
+        if BaseAsset(a.xleft[0], *a.nlanes[0]) in packages['M1'] \
+             and BaseAsset(a.xleft[1], *a.nlanes[1]) in packages['M1']:
+            packages['M1'].append(a)
+        elif x_max(a) < 5.5 * SW.LANE:
+            packages['M2'].append(a)
+        elif x_max(a) <= 6.5 * SW.LANE:
+            packages['M4'].append(a)
+        else:
+            packages['M5'].append(a)
+
+    anchors = ['2R4P', '3R', '4R', '5R']
+    anchors2 = ['1R31R4P', '2R1R3P', '2R2R4P', '3R1R4P', '3R2R5P']
+    for a in assets['ramp']:
+        if a.nblock() < 5:
+            if (str(a).split('=')[0] in anchors and str(a).split('=')[1] in anchors2) \
+                or (str(a).split('=')[1] in anchors and str(a).split('=')[0] in anchors2) \
+                or str(a) in ['3R2R5P=4R1R5P', '4R1R5P=3R2R5P']:
+                packages['M1'].append(a)
+            elif x_max(a) < 5.5 * SW.LANE:
+                packages['M2'].append(a)
+            elif x_max(a) <= 6.5 * SW.LANE:
+                packages['M4'].append(a)
+            else:
+                packages['M5'].append(a)
+        else:
+            packages['M6'].append(a)
+
+
+    for a in assets['twoway'] + variants['uturn'] + variants['brt']:
+        if a.roadtype == 'b' and a.is_symmetric():
+            if a.is_undivided():
+                if a.nblock() == 4:
+                    if a.nl_min() <= 2:
+                        packages['R1'].append(a)
+                    elif a.nl_min() == 3:
+                        packages['R2'].append(a)
+                    else:
+                        packages['R3'].append(a)
+                else:
+                    packages['B'].append(a)
+            else:
+                # a.nblock() == 4 for regular two-way, 8 for local-express
+                if a.nblock() == 4:
+                    if a.get_dim()[0] <= 12 * SW.LANE:
+                        if a.nl_min() >= 2 and a.n_median_min() == 2:
+                            packages['R1'].append(a)
+                        else:
+                            packages['R2'].append(a)
+                    else:
+                        packages['R3'].append(a)
+                else:
+                    if a.get_dim()[0] <= 12 * SW.LANE:
+                        if a.n_median_min() == 2 and a.right.nlanes[0][0] > a.right.nlanes[0][1]:
+                            packages['R1'].append(a)
+                        elif a.n_median_min() == 0:
+                            packages['B'].append(a)
+                        else:
+                            packages['R2'].append(a)
+                    else:
+                        packages['R3'].append(a)
+        elif a.roadtype == 'b' and not a.is_symmetric():
+            if a.has_trafficlight():
+                packages['R4'].append(a)
+            else:
+                packages['M3'].append(a)
+        else:
+            if a.left.always_undivided() and a.right.always_undivided():
+                packages['M3'].append(a)
+            elif str(a) in ['4DR5P=6DR5P', '4DR4P=6DR4P']:
+                packages['M1'].append(a)
+            elif max(a.get_dim()) < 11 * SW.LANE:
+                packages['M2'].append(a)
+            elif max(a.get_dim()) <= 13 * SW.LANE:
+                packages['M4'].append(a)
+            else:
+                packages['M5'].append(a)
+    return packages
+
+
+
+
         
 
         

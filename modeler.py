@@ -1138,8 +1138,12 @@ class Modeler:
             # upward and downward slopes use different models
             else:
                 #lanes = make_mirror(lanes, axis=0, copy=False, realign=False)
-                struc_up = make_mirror(struc, axis=0, copy=True, realign=False)
-                struc_down = struc
+                if isinstance(seg, csur.TwoWay):
+                    struc_up = make_mirror(struc, axis=0, copy=True, realign=False)
+                    struc_down = struc
+                else:
+                    struc_down = make_mirror(struc, axis=0, copy=True, realign=False)
+                    struc_up = struc
                 return lanes, (struc_up, struc_down)
         if busstop == 'brt':
             return lanes, struc, brt_f, brt_both
@@ -1154,13 +1158,25 @@ class Modeler:
     def make_node(self, seg, mode, compatibility=False):
         deselect()
         lb = self.lane_border
+        margin = 0.15 if mode[0] == 'g' else 0
+        # the exact margin should be 0.15, let the node protrude into the curb by 5cm for safety
         if isinstance(seg, csur.TwoWay):
             p = seg.right.start.index(Segment.LANE)
+            junction = None
             if not compatibility:
                 i_curb = seg.right.start[1:].index(Segment.CURB) + 1
                 stopline = place_unit(self.objs['NODE']['stop_line'], 
                             [seg.right.x_start[p], seg.right.x_end[p]], 
                             [seg.right.x_start[i_curb] + lb, seg.right.x_end[i_curb] + lb])
+                median = None
+                if not seg.undivided and seg.left.x_start == seg.right.x_start \
+                    and seg.left.x_end == seg.right.x_end:
+                    x0 = seg.right.x_start[seg.right.start.index(Segment.LANE)]
+                    median = place_unit(self.objs['NODE']['median'],
+                                    [-x0 + lb + margin, -x0 + lb + margin],
+                                    [x0 - lb - margin, x0 - lb - margin],
+                                    scale_mode=0)         
+                junction = make_mesh([stopline, median]) if median else stopline
             elements_l = Modeler.make_node(self, seg.left, mode, compatibility)
             elements_r = Modeler.make_node(self, seg.right, mode, compatibility)
             # if the node is asymmetric then recenter the end of the node
@@ -1182,9 +1198,9 @@ class Modeler:
                     new_element.name = str(seg) + '_' + '_'.join(el.name.split('_')[1:])
                 else:
                     new_element = None
-                elements.append(new_element)
+                elements.append(new_element)              
             if not compatibility:
-                elements[-1] = make_mesh([elements[-1], stopline]) if elements[-1] else stopline
+                elements[-1] = make_mesh([elements[-1], junction]) if elements[-1] else junction
             return tuple(elements)
         sidewalk = []
         # sidewalk2 does not have crossing
@@ -1196,8 +1212,6 @@ class Modeler:
             units = [x or y for x, y in zip(seg.start, seg.end)]
             xs_start, xs_end = seg.x_start, seg.x_end
         p = 0
-        margin = 0.15 if Segment.CURB in units else 0
-        # the exact margin should be 0.15, let the node protrude into the curb by 5cm for safety
         while p < len(units):
             nblocks = 1
             while p + nblocks < len(units) and (units[p + nblocks] == units[p] \
@@ -1207,7 +1221,7 @@ class Modeler:
             if units[p] == Segment.MEDIAN and not compatibility:
                 if p != 0:
                     # side median in segment is wider by 0.2m
-                    obj = self.objs['NODE']['side_median']
+                    obj = self.objs['NODE']['median']
                     junction.append(place_unit(obj, [xs_start[p] + lb + margin, xs_end[p] + lb + margin],
                                     [xs_start[p + nblocks] - lb - margin, xs_end[p + nblocks] - lb - margin], scale_mode=0))
             elif units[p] in [Segment.CURB, Segment.BARRIER] and (p == 0 or p == len(units) - 1):
@@ -1245,19 +1259,19 @@ class Modeler:
                             [xs_start[-3] + lb + margin, xs_end[-3] + lb + margin], 
                             [xs_start[-1], xs_end[-1]], preserve_obj=True))     
             p += nblocks
-        key = 'asphalt' if seg.x_start[-1] > 5.5 * LANEWIDTH else 'asphalt_small'
         # i_curb is the LAST index of CURB in units
         i_curb = len(units) - units[::-1].index(Segment.CURB) - 1
-        asphalt = place_unit(self.objs['NODE'][key], 
+        asphalt_hw = xs_start[i_curb] + lb + margin
+        asphalt = place_unit(self.objs['NODE']['asphalt'], [0, 0], [4 * LANEWIDTH, 4 * LANEWIDTH], scale_mode=1)
+        asphalt = place_unit(asphalt, 
                     [0, 0], 
-                    [xs_start[i_curb] + lb + margin, xs_end[i_curb] + lb + margin], scale_mode=1)
-        print(key, xs_start[i_curb] + lb + margin)
+                    [asphalt_hw, asphalt_hw], scale_mode=0, preserve_uv=(0 if asphalt_hw >= 4 * LANEWIDTH else -1),
+                    copy=False)
         # needs to consider one-way roads with nodes, in this case
         # the road will be always symmetric so the asphalt is just mirrored
         if xs_start[0] + xs_start[-1] == 0 and xs_end[0] + xs_end[-1] == 0:
             asphalt_l = make_mirror(asphalt, copy=True, realign=False)
             #flip_normals(asphalt_l)
-            
             asphalt = make_mesh([asphalt, asphalt_l])
             # normals will be flipped after these operations, need to restore
             #flip_normals(asphalt)

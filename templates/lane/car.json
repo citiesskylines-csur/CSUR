@@ -30,7 +30,7 @@
                 "m_angle": "180",
                 "m_segmentOffset": "0.8",
                 "m_repeatDistance": "0",
-                "m_minLength": "8",
+                "m_minLength": "24",
                 "m_cornerAngle": "0",
                 "m_probability": "100"
             },
@@ -54,7 +54,7 @@
                 "m_angle": "180",
                 "m_segmentOffset": "0.8",
                 "m_repeatDistance": "0",
-                "m_minLength": "8",
+                "m_minLength": "24",
                 "m_cornerAngle": "0",
                 "m_probability": "100"
             },
@@ -78,7 +78,7 @@
                 "m_angle": "180",
                 "m_segmentOffset": "0.8",
                 "m_repeatDistance": "0",
-                "m_minLength": "8",
+                "m_minLength": "24",
                 "m_cornerAngle": "0",
                 "m_probability": "100"
             },
@@ -102,7 +102,7 @@
                 "m_angle": "180",
                 "m_segmentOffset": "0.8",
                 "m_repeatDistance": "0",
-                "m_minLength": "8",
+                "m_minLength": "24",
                 "m_cornerAngle": "0",
                 "m_probability": "100"
             },
@@ -126,7 +126,7 @@
                 "m_angle": "180",
                 "m_segmentOffset": "0.8",
                 "m_repeatDistance": "0",
-                "m_minLength": "8",
+                "m_minLength": "24",
                 "m_cornerAngle": "0",
                 "m_probability": "100"
             },
@@ -150,7 +150,7 @@
                 "m_angle": "180",
                 "m_segmentOffset": "0.5",
                 "m_repeatDistance": "0",
-                "m_minLength": "8",
+                "m_minLength": "24",
                 "m_cornerAngle": "0",
                 "m_probability": "15"
             }

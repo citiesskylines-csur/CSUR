@@ -34,6 +34,13 @@
 		"m_directConnect": "false", 
 		"m_emptyTransparent": "false"
 	},
+	"notrafficlight_t": {
+		"m_flagsRequired": " Transition", 
+		"m_flagsForbidden": "TrafficLights", 
+		"m_connectGroup": "None", 
+		"m_directConnect": "false", 
+		"m_emptyTransparent": "false"
+	},
 	"direct": {
 		"m_flagsRequired": "None", 
 		"m_flagsForbidden": "TrafficLights Bend", 
