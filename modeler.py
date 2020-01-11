@@ -168,7 +168,8 @@ class Modeler:
         obj.select_set(True)
         if not os.path.exists(path):
             bpy.ops.export_scene.fbx(filepath=path, 
-                    axis_forward='Z', axis_up='Y', use_selection=True, bake_space_transform=True)
+                    axis_forward='Z', axis_up='Y', use_selection=True, bake_space_transform=True,
+                    mesh_smooth_type='EDGE')
         else:
             print("Warning: file %s already exists!" % path)
         if self.optimize:
@@ -868,7 +869,7 @@ class Modeler:
         reset_origin(lanes)
         # do not merge bridge mesh to preserve double-sided faces
         if struc:
-            struc = make_mesh(struc, merge=mode[0] != 'b')
+            struc = make_mesh(struc, merge=mode[0] != 'b')        
             reset_origin(struc)
         else:
             struc = None
@@ -1177,6 +1178,7 @@ class Modeler:
                                     [x0 - lb - margin, x0 - lb - margin],
                                     scale_mode=0)         
                 junction = make_mesh([stopline, median]) if median else stopline
+                reset_origin(junction)
             elements_l = Modeler.make_node(self, seg.left, mode, compatibility)
             elements_r = Modeler.make_node(self, seg.right, mode, compatibility)
             # if the node is asymmetric then recenter the end of the node

@@ -1,6 +1,6 @@
 import bpy
 from mathutils import Vector
-from math import pi, cos
+from math import pi, cos, sin
 
 '''
 Decoreator to deselect all objects before function call.
@@ -84,6 +84,25 @@ get_dims = lambda m: [max(v.co[ax] for v in m.vertices) \
 
 
 '''
+A piecewise continuous function from (0, 0) to (1, 1)
+constructed by two cosine functions at the ends and a 
+stright line in between.
+'''
+phi = lambda x: (1 - cos(x * pi)) / 2
+dphi = lambda x: pi / 2 * sin(x * pi)
+
+def cosine_straight(alpha, t):
+    k = 1 / ((1 - 2 * t) * dphi(t) + 2 * phi(t))
+    if alpha < t:
+        return k * phi(alpha)
+    elif alpha < 1 - t:
+        return k * dphi(t) * (alpha - t) + k * phi(t)
+    else:
+        return 1 - k * phi(1 - alpha)
+
+
+
+'''
 Interpolation functions between (x0, x0) and (x1, x1)
 LINEAR: linear interpolation
 COSINE: cosine function interpolation
@@ -101,6 +120,9 @@ def interpolate(x0, x1, alpha, interp_type=INTERP_TYPE):
         return x0 + (x1 - x0) * alpha
     if interp_type == 'cosine':
         return x0 + (x1 - x0) * (1 - cos(alpha * pi)) / 2
+    if 'cosinestraight' in interp_type:
+        t = float(interp_type[len('cosinestraight'):])
+        return x0 + (x1 - x0) * cosine_straight(alpha, t)
     if interp_type == 'halfcosine':
         return x0 + (x1 - x0) * (1 - cos(alpha * pi / 2))
     if 'bezier' in interp_type:
@@ -190,16 +212,13 @@ Make a list of objects OBJS into a single mesh.
 Also merges overlapping vertices.
 '''
 @selection_safe
-def make_mesh(objs, merge=True, smooth=True):
+def make_mesh(objs, merge=True):
     bpy.context.view_layer.objects.active = objs[0]
     [o.select_set(True) for o in objs if o]
     bpy.ops.object.join()
     bpy.ops.object.editmode_toggle()
     if merge:
         bpy.ops.mesh.remove_doubles(threshold=EPS)
-    if smooth:
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.faces_shade_smooth()
     bpy.ops.object.editmode_toggle()
     obj = bpy.context.view_layer.objects.active
     obj.select_set(False)   

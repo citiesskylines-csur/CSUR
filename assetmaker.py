@@ -13,7 +13,7 @@ class AssetMaker:
 
 
     FENCE = False
-    REDUCED_LANE_SHIFT = True
+    REDUCED_LANE_SHIFT = False
     PILLAR = False
 
 
