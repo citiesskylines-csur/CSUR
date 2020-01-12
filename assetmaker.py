@@ -432,7 +432,8 @@ class AssetMaker:
                         # add lights and trees
                         if seg.x_start[i_side] == seg.x_end[i_side]:
                             prop_utils.add_props(lane, prop_pos, self.props["light_side"], height=height)
-                            prop_utils.add_props(lane, prop_pos, self.props["tree_side"], height=height)
+                            if mode == 'g':
+                                prop_utils.add_props(lane, prop_pos, self.props["tree_side"], height=height)
                             # random street props should always be placed on sidewalks
                             prop_utils.add_props(lane, sidewalk_pos + 1, self.props["random_street_prop"], height=0)
                         else:
