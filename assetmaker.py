@@ -112,7 +112,8 @@ class AssetMaker:
         if texmode == 'metro':
             newmesh = self.__create_mesh(color, 'Metro', name, 'disabled')
         else:
-            newmesh = self.__create_mesh(color, AssetMaker.shaders[mode[0]], name, texmode)
+            shader = 'Road' if mode[0] == 'g' and texmode == 'lane' else 'RoadBridge'
+            newmesh = self.__create_mesh(color, shader, name, texmode)
         self.assetdata['%sModel' % modename]['segmentMeshes']['CSMesh'].append(newmesh)
         segmentinfo = deepcopy(self.segment_presets[preset])
         self.assetdata[modename]['m_segments']['Segment'].append(segmentinfo)
@@ -127,7 +128,7 @@ class AssetMaker:
             self.modeler.save(model, os.path.join(self.output_path, name + '.FBX'))
         modename = self.get_basename(mode)
         texmode = texmode or modename
-        newmesh = self.__create_mesh(color, AssetMaker.shaders[mode[0]], name, texmode)     
+        newmesh = self.__create_mesh(color, 'Road' if mode[0] == 'g' else 'RoadBridge', name, texmode)     
         self.assetdata['%sModel' % modename]['nodeMeshes']['CSMesh'].append(newmesh)
         nodeinfo = deepcopy(self.node_presets[preset])
         self.assetdata[modename]['m_nodes']['Node'].append(nodeinfo)

@@ -169,7 +169,7 @@ class Modeler:
         if not os.path.exists(path):
             bpy.ops.export_scene.fbx(filepath=path, 
                     axis_forward='Z', axis_up='Y', use_selection=True, bake_space_transform=True,
-                    mesh_smooth_type='EDGE')
+                    mesh_smooth_type='OFF')
         else:
             print("Warning: file %s already exists!" % path)
         if self.optimize:
