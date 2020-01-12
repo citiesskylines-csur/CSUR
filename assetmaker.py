@@ -602,7 +602,7 @@ class AssetMaker:
                 if min(asset.get_dim()) > 6 * SW.LANE:
                     info["m_minCornerOffset"] = str(halfwidth + min(2 * min(asset.get_dim()) / SW.LANE - 6, 16))
                 else:
-                    info["m_minCornerOffset"] = str(halfwidth)
+                    info["m_minCornerOffset"] = str(halfwidth) + 3
                 # clips terrain when there is median
                 if asset.append_median and mode != 'ge':
                     info["m_clipTerrain"] = "true"
