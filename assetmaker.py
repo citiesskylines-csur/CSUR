@@ -452,7 +452,8 @@ class AssetMaker:
                                 prop_utils.add_props(lane, prop_pos + deltax, tree, height=height)
                         # add intersection props
                         if asset.has_trafficlight():
-                            prop_utils.add_intersection_props(lane, prop_pos, self.props["intersection_side"], height=0)
+                            if asset.is_undivided() or max(asset.nl) > 1:
+                                prop_utils.add_intersection_props(lane, prop_pos, self.props["intersection_side"], height=0)
                             # railway crossings should always be placed on sidewalks
                             prop_utils.add_intersection_props(lane, sidewalk_pos, self.props["railway_crossing"], height=0)
                         # add bus stop props
