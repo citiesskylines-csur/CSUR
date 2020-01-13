@@ -63,6 +63,9 @@ class Asset():
 
     def nl_min(self):
         return min(self.ntot_start(), self.ntot_end())
+    
+    def nl_max(self):
+        return max(self.ntot_start(), self.ntot_end())
 
     def center(self):
         return [(b[-1].x_right + b[0].x_left) / 2 for b in self._blocks]
@@ -169,6 +172,9 @@ class TwoWayAsset(Asset):
     
     def nl_min(self):
         return min(self.left.nl_min(), self.right.nl_min())
+
+    def nl_max(self):
+        return max(self.left.nl_max(), self.right.nl_max())
 
     def get_all_blocks(self):
         # right hand traffic

@@ -380,7 +380,7 @@ class AssetMaker:
                         # when the leftmost unit is a sidewalk
                         if mode[0] == 'g' and not asset.is_twoway() and asset.has_busstop() and i == len(csur.CSURFactory.roadside[mode]) \
                             and seg.start[0] == Segment.SIDEWALK and seg.start[i - 1] != Segment.LANE:
-                                lane["m_stopOffset"] = "-3"
+                                lane["m_stopOffset"] = "-1.2" if mode == 'gc' else "-3" 
                         # remove arrows for shift and transition modules
                         if asset.roadtype in 'st':
                             lane["m_laneProps"]["Prop"] = []
@@ -452,7 +452,7 @@ class AssetMaker:
                                 prop_utils.add_props(lane, prop_pos + deltax, tree, height=height)
                         # add intersection props
                         if asset.has_trafficlight():
-                            if asset.is_undivided() or max(asset.nl) > 1:
+                            if not asset.is_undivided() or asset.nl_max()> 1:
                                 prop_utils.add_intersection_props(lane, prop_pos, self.props["intersection_side"], height=0)
                             # railway crossings should always be placed on sidewalks
                             prop_utils.add_intersection_props(lane, sidewalk_pos, self.props["railway_crossing"], height=0)
@@ -464,7 +464,10 @@ class AssetMaker:
                                 prop_pos = (seg.x_start[-1] + seg.x_start[-2]) / 2 - pos
                             if Segment.BIKE not in seg.start:
                                 prop_pos += 4.5
-                            prop_utils.add_props(lane, prop_pos, self.props["busstop"])
+                            if mode == 'gc':
+                                prop_utils.add_props(lane, prop_pos - 1.875, self.props["busstop"])
+                            else:
+                                prop_utils.add_props(lane, prop_pos, self.props["busstop"])
                     elif mode == 'ge' and u_start == Segment.CURB:
                         lane = deepcopy(self.lanes['barrier'])
                         '''
@@ -505,7 +508,10 @@ class AssetMaker:
             # applies stop offset
             if mode[0] == 'g' and asset.has_busstop() and Segment.SIDEWALK in seg.start:
                 if not brt:
-                    busstop_lane["m_stopOffset"] = "-3" if reverse else "3"
+                    if mode == 'gc':
+                        busstop_lane["m_stopOffset"] = "-1.2" if reverse else "1.2"
+                    else:
+                        busstop_lane["m_stopOffset"] = "-3" if reverse else "3"
                 else:
                     busstop_lane["m_stopOffset"] = "-0.3" if reverse else "0.3"
                     busstop_lane["m_laneType"] = "TransportVehicle"
@@ -604,7 +610,7 @@ class AssetMaker:
                 if min(asset.get_dim()) > 6 * SW.LANE:
                     info["m_minCornerOffset"] = str(halfwidth + min(2 * min(asset.get_dim()) / SW.LANE - 6, 16))
                 else:
-                    info["m_minCornerOffset"] = str(halfwidth) + 3
+                    info["m_minCornerOffset"] = str(halfwidth + 3)
                 # clips terrain when there is median
                 if asset.append_median and mode != 'ge':
                     info["m_clipTerrain"] = "true"
