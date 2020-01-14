@@ -386,7 +386,7 @@ class AssetMaker:
                             lane["m_laneProps"]["Prop"] = []
                         # change prop positions in the car lane
                         for p in lane["m_laneProps"]["Prop"]:
-                            deltax = (pos_end - pos_start) * float(p["m_segmentOffset"]) / 2
+                            deltax = (pos_end - pos_start) * float(p["m_segmentOffset"]) / 2 if AssetMaker.REDUCED_LANE_SHIFT else 0
                             p["m_position"]["float"][0] = str(float(p["m_position"]["float"][0]) + deltax)
                     elif u_start == Segment.MEDIAN and brt and not brt_sidewalk and i > 0:
                         lane = deepcopy(self.lanes['ped'])
@@ -430,7 +430,7 @@ class AssetMaker:
                         if seg.start[i_side] == Segment.MEDIAN:
                             sidewalk_pos += SW.MEDIAN / 2 + SW.BIKE + SW.CURB
                         # add lights and trees
-                        if seg.x_start[i_side] == seg.x_end[i_side]:
+                        if not AssetMaker.REDUCED_LANE_SHIFT or seg.x_start[i_side] == seg.x_end[i_side]:
                             prop_utils.add_props(lane, prop_pos, self.props["light_side"], height=height)
                             if mode == 'g':
                                 prop_utils.add_props(lane, prop_pos, self.props["tree_side"], height=height)

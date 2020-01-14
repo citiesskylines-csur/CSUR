@@ -120,6 +120,9 @@ class Builder:
         self.base = [find_base(i + 1, codes=base_init[i], mode=self.MODE) for i in range(self.max_lane)]
         for i in range(1, self.MAX_UNDIVIDED + 1):
             self.base[i - 1].insert(0, BaseAsset(0, i))
+        # add centered one-way nC modules with n<max_undivided
+        for i in range(1, 3):
+            self.base[i - 1].insert(0, BaseAsset(-SW.LANE * i / 2, i))
         self.built = False
         self.comp = []
         self.triplex = []
@@ -209,7 +212,7 @@ class Builder:
                 pairs.extend(p_cur)
         # 2 to 2 ramp
         # no need to reverse because of exchange symmetry    
-        for i in range(3, self.max_lane):
+        for i in range(2, self.max_lane):
             p_cur = [p for p in product(self.comp[i], self.comp[i]) \
                         if (p[0].x0() == p[1].x0() and p[0].x1() == p[1].x1() and p[1] is not p[0])]
             pairs.extend(p_cur)
@@ -232,20 +235,27 @@ class Builder:
         
         # 1 to 3 ramp
         access = []
-        for x in flatten(self.base[4:]):
+        for x in flatten(self.base[3:]):
             access.extend(find_access(1, x, codes=self.codes[0]))
             access.extend(find_access(2, x, codes=self.codes[1]))
         access.extend([reverse(a) for a in access])
         self.ramp.extend(access)
 
     def _find_twoway(self):
-        # first resolve undivided base segments
+
+        for i in range(3, self.MAX_UNDIVIDED + 1):
+            self.base[i - 1].insert(0, BaseAsset(-SW.LANE * i / 2, i))
+
+        # first resolve undivided base segments,
+        # remove all but 1R0P
         undivided_base = []
         for l in self.base:
             for i, r in enumerate(l.copy()[::-1]):
                 if r.is_undivided():
-                    l.pop(len(l) - i - 1)
+                    if r.nl() > 1:
+                        l.pop(len(l) - i - 1)
                     undivided_base.append(r)
+       
         # remove all local-express undivided segments
         # we can always build them using two base segments
         for l in self.comp:
@@ -259,13 +269,12 @@ class Builder:
             for r1, r2 in product(undivided_base, repeat=2):
                 if r2.nl() - r1.nl() == 1:
                     self.twoway.append(TwoWayAsset(r1, r2))
-
         for r in flatten(self.base):
             # make base segments less than 1.5u median two-way
             # make other > 2 lanes also twoway:
-            if r.nl() > 1 or r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE:
-                self.twoway.append(TwoWayAsset(r, r))
-            
+            if r.x0() > 0 and (r.nl() > 1 or r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE):
+                self.twoway.append(TwoWayAsset(r, r)) 
+        
         # make comp segments with more than 4 lanes two-way
         for r in flatten([[x for x in self.comp[2] if x.x0() == 0]] + self.comp[3:]):
             if r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE and (r.x0() == 0 or r.get_blocks()[0].nlanes > 1):
@@ -274,42 +283,52 @@ class Builder:
         # find all undivided interface segments
         # need to account for double counting
         undivided_interface = []
-        undivided_interface_symm = []
+        undivided_interface_sorted = []
         for i in range(len(self.shift) - 1, -1, -1):
             if self.shift[i].is_undivided():
                 r = self.shift.pop(i)
-                if r.xleft[0] < r.xleft[1]:
-                    undivided_interface.append(r)
-                    undivided_interface_symm.append(r)
+                undivided_interface.append(r)
+                if 0 <= r.xleft[0] < r.xleft[1]:  
+                    undivided_interface_sorted.append(r)
         for i in range(len(self.trans) - 1, -1, -1):
             if self.trans[i].is_undivided():
                 r = self.trans.pop(i)
                 undivided_interface.append(r)
                 if r.ntot_start() < r.ntot_end():
-                    undivided_interface_symm.append(r)
+                    undivided_interface_sorted.append(r)
         for i in range(len(self.ramp) - 1, -1, -1):
             if self.ramp[i].is_undivided():
                 r = self.ramp.pop(i)
-                if len(r._blocks[0]) == 1 or len(r._blocks[1]) == 1:   
+                if self.ramp[i].nblock() < 5:
                     undivided_interface.append(r)
-                if len(r._blocks[0]) == 1:
-                    undivided_interface_symm.append(r)
-        for r in undivided_interface_symm:
+                    if r not in undivided_interface_sorted and reverse(r) not in undivided_interface_sorted:
+                        undivided_interface_sorted.append(reverse(r))
+        for r in undivided_interface_sorted:
             self.twoway.append(TwoWayAsset(r, r))
+        
+        # add 1R0P-associated left exist assets back
+        for r in undivided_interface:
+            if (str(r._blocks[0][0]) == '1R0P' and r.xleft[1] != 0)\
+                or (str(r._blocks[1][0]) == '1R0P' and r.xleft[0] != 0):
+                if r.roadtype == 's':
+                    self.shift.append(r)
+                elif r.roadtype == 't':
+                    self.trans.append(r)
+                else:
+                    self.ramp.append(r)
+        
+        #print(undivided_interface, len(undivided_interface))
+        #print(undivided_interface_sorted)
 
         if self.ASYM_SLIPLANE:
             for r1, r2 in product(undivided_base, undivided_interface):
                 if r2.always_undivided():
                     r_t = TwoWayAsset(r1, r2)
-                    if abs(r_t.asym()[0]) + abs(r_t.asym()[1]) <= 1:
+                    if abs(r_t.asym()[0]) + abs(r_t.asym()[1]) <= 1 and r2.nblock() < 4:
                         if sum(r_t.asym()) > 0:
                             self.twoway.append(r_t)
                         else:
                             self.twoway.append(TwoWayAsset(r2, r1))
-        
-        # finally we add centered one-way nC modules with n<max_undivided
-        for i in range(1, self.MAX_UNDIVIDED + 1):
-            self.base[i].append(BaseAsset(-SW.LANE * i / 2, i))
 
     def _find_asym(self):
         # asym (2n+1)DC
@@ -345,8 +364,8 @@ class Builder:
             raise Exception("Asset pack not built; use self.build() to build")
         assets = {}
         assets['base'] = flatten(self.base)
-        assets['comp'] = [x for x in flatten(self.comp[3:]) if not x.is_undivided()]
-        assets['shift'] = self.shift   
+        assets['comp'] = [x for x in flatten(self.comp[1:]) if not x.is_undivided()]
+        assets['shift'] = self.shift  
         assets['trans'] = self.trans
         assets['ramp'] = [x for x in self.ramp if x.nblock() == 3]
         assets['ramp'] += [x for x in self.ramp if abs(len(x._blocks[0]) - len(x._blocks[1])) == 2]
@@ -364,7 +383,7 @@ class Builder:
         right = lambda x: max([block[-1].x_right for block in x.get_all_blocks()])
         # ground express, all single-carriageway roads <= 3.5L
         variants['express'] = [x for x in assets['base'] + assets['shift'] \
-            + assets['trans'] + assets['ramp'] + assets['twoway'] if right(x) <= 3.5 * SW.LANE]
+            + assets['trans'] + assets['ramp'] + assets['twoway'] if right(x) <= 5 * SW.LANE]
         # ground compact, all roads w/ traffic lights <= 3.5L
         variants['compact'] = [x for x in assets['base'] + assets['twoway'] 
                         if x.has_trafficlight() and right(x) <= 3.5 * SW.LANE]
@@ -551,7 +570,7 @@ def get_packages(assets, variants):
             packages['M5'].append(a)
 
     for a in assets['shift']:
-        if a.nl_min() == 2 and x_max(a) <= 5.5 * SW.LANE:
+        if a.nl_min() == 2 and x_max(a) <= 6 * SW.LANE:
             packages['M1'].append(a)
         elif x_max(a) < 5.5 * SW.LANE:
             packages['M2'].append(a)

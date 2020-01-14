@@ -131,7 +131,7 @@ def decode(name, twoway_mask=False):
             p2 = p1
             while p2 < len(name) and ('1' <= name[p2] <= '9' or name[p2] == 'P' or name[p2:p2+2] == "0P" ):
                 p2 += 1
-            if p2< len(name) - 1:
+            if p2 < len(name) - 1:
                 p2 -= 1
             nl_single = nl_cur // 2 if twoway else nl_cur
             offset_code = str(nl_single) if p1 == p2 else name[p1:p2]

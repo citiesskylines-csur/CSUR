@@ -1,7 +1,7 @@
 import os, json
 from builder import Builder, get_packages
 
-codes = [['1', '2', '2P', '3', '3P', '4P', '5P', '6', '7'],
+codes = [['1', '2', '2P', '3', '3P', '4', '4P', '5P', '6', '7'],
                 ['2', '3', '4P', '5P', '6P', '7'],
                 ['3', '4', '4P', '5P', '6P'],
                 ['4', '5', '5P', '6P'],
@@ -24,6 +24,9 @@ for key in variants.keys():
             names.append(str(x) + '_' + key)
 
 pkg = get_packages(assetpack, variants)
+
+if not os.path.exists("release/input"):
+    os.makedirs("release/input")
 
 for pkg_key in pkg.keys():
     to_make = []
