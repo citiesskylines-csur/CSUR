@@ -687,7 +687,7 @@ class AssetMaker:
         # median lights
         if position == "median":
             if mode == "g":
-                if min(asset.get_dim()) > 4 * SW.LANE:
+                if min(asset.get_dim()) > 10 * SW.LANE:
                     return tuple(self.skins['light']['median_gnd'])
             elif mode == "e":
                 if min(asset.get_dim()) > 10 * SW.LANE:
@@ -695,15 +695,7 @@ class AssetMaker:
         # side lights
         elif position == "side":
             if mode == "g":
-                if asset.is_twoway() and asset.is_undivided():
-                    return tuple(self.skins['light']['side_gnd_large'])
-                elif min(asset.get_dim()) > 10 * SW.LANE or min(asset.get_dim()) <= 4 * SW.LANE:
-                    return tuple(self.skins['light']['side_gnd_large'])
-                # divided roads does not need side light
-                elif asset.is_twoway() and min(asset.get_dim()) < 6 * SW.LANE:
-                    return (None, 0)
-                else:
-                    return tuple(self.skins['light']['side_gnd_small'])
+                return tuple(self.skins['light']['side_gnd'])
             elif mode == "e":
                 return tuple(self.skins['light']['side_elv'])
             elif mode == "t":

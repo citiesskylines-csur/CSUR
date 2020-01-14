@@ -22,10 +22,9 @@
     },
     "light": {
         "median_gnd": ["1826488681.Stainless Avenue Light_Data", 0],
-        "median_elv": ["1826488681.Stainless Avenue Light_Data", 0],
-        "side_gnd_small": ["1826488681.Reflective Light Double_Data", 0],
-        "side_gnd_large": ["1826488681.Stainless Street Light_Data", 0],
-        "side_elv": ["1228724586.R69 Expressway Light_Data", 0.5],
+        "median_elv": ["1826488681.Stainless Avenue Light_Data", 0.2],
+        "side_gnd": ["1826488681.Stainless Street Light_Data", 0],
+        "side_elv": ["1228724586.R69 Expressway Light_Data", 0.2],
         "side_tun": ["Wall Light White", 0]
     },
     "tree": {
