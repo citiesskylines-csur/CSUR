@@ -59,6 +59,7 @@ def flip(prop, in_place=False, mirror_position=True):
     # also every occurence of "Start" and "End" in lane flags need to be flipped
     prop["m_flagsRequired"] = swap_substr(prop["m_flagsRequired"], "Start", "End")
     prop["m_flagsForbidden"] = swap_substr(prop["m_flagsForbidden"], "Start", "End")
+    prop["m_colorMode"] = swap_substr(prop["m_colorMode"], "Start", "End")
     return prop
 
 '''
