@@ -315,7 +315,7 @@ class AssetMaker:
         if asset.is_twoway() and not seg:
             seg = asset.get_model(mode)
             self.__create_lanes(asset, mode, seg=seg.left, reverse=True, brt=brt)
-            if not asset.is_undivided() and asset.append_median:
+            if not asset.is_undivided() and mode[0] == 'g':
                 median_lane = deepcopy(self.lanes['median'])
                 # add traffic lights and road lights to median, lane position is always 0 to let NS2 work
                 median_pos = (min(seg.right.x_start[0], seg.right.x_end[0]))
@@ -329,7 +329,7 @@ class AssetMaker:
                     prop_utils.add_props(median_lane, light_l, self.props["light_tunnel"])
                 if asset.has_trafficlight():
                     # wide median is used if the road is wider than 6L
-                    if min(asset.get_dim()) > 6 * SW.LANE:
+                    if (asset.right.xleft[0] + asset.left.xleft[0]) > 2 * SW.LANE:
                         if asset.nl_min() > 3:
                             prop_set = self.props["intersection_widemedian"]
                             xl = -asset.left.xleft[0] + SW.CURB
@@ -452,8 +452,9 @@ class AssetMaker:
                                 prop_utils.add_props(lane, prop_pos + deltax, tree, height=height)
                         # add intersection props
                         if asset.has_trafficlight():
-                            if not asset.is_undivided() or asset.nl_max()> 1:
-                                prop_utils.add_intersection_props(lane, prop_pos, self.props["intersection_side"], height=0)
+                            prop_utils.add_intersection_props(lane, prop_pos, self.props["intersection_side"], height=0)
+                            if min(asset.get_dim()) > 5 * SW.LANE:
+                                prop_utils.add_intersection_props(lane, prop_pos, self.props["traffic_camera"], height=0)
                             # railway crossings should always be placed on sidewalks
                             prop_utils.add_intersection_props(lane, sidewalk_pos, self.props["railway_crossing"], height=0)
                         # add bus stop props
@@ -534,7 +535,8 @@ class AssetMaker:
     def __write_netAI(self, asset, mode):
         seg = asset.get_model(mode)
         modename = self.get_basename(mode)
-        if mode[0] == 'g' and asset.is_twoway() and asset.roadtype == 'b':
+        # disable traffic lights for 2DC and 2DR
+        if mode[0] == 'g' and asset.is_twoway() and asset.roadtype == 'b' and asset.nl_max() >= 2:
             self.assetdata['%sAI' % modename]['m_trafficLights'] = 'true' 
         else:
             self.assetdata['%sAI' % modename]['m_trafficLights'] = 'false'

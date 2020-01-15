@@ -211,7 +211,7 @@
             "m_startFlagsForbidden": "LevelCrossing",
             "m_endFlagsRequired": "None",
             "m_endFlagsForbidden": "None",
-            "m_colorMode": "StartState",
+            "m_colorMode": "Default",
             "m_prop": "1959183067.CSUR MidSign_Data",
             "m_tree": null,
             "m_position": {
@@ -233,36 +233,12 @@
         {
             "m_flagsRequired": "None",
             "m_flagsForbidden": "JoinedJunction",
-            "m_startFlagsRequired": "None",
-            "m_startFlagsForbidden": "None",
-            "m_endFlagsRequired": "TrafficLights",
-            "m_endFlagsForbidden": "LevelCrossing",
-            "m_colorMode": "EndState",
-            "m_prop": "Traffic Light 01",
-            "m_tree": null,
-            "m_position": {
-                "float": [
-                    "0",
-                    "0",
-                    "0"
-                ]
-            },
-            "m_angle": "90",
-            "m_segmentOffset": "1",
-            "m_repeatDistance": "0",
-            "m_minLength": "0",
-            "m_cornerAngle": "0.5",
-            "m_probability": "100"
-        },
-        {
-            "m_flagsRequired": "None",
-            "m_flagsForbidden": "JoinedJunction",
             "m_startFlagsRequired": "TrafficLights",
             "m_startFlagsForbidden": "LevelCrossing",
             "m_endFlagsRequired": "None",
             "m_endFlagsForbidden": "None",
             "m_colorMode": "StartState",
-            "m_prop": "Traffic Light 02 Mirror",
+            "m_prop": "Traffic Light 01 Mirror",
             "m_tree": null,
             "m_position": {
                 "float": [
@@ -279,6 +255,32 @@
             "m_probability": "100"
         }
     ],
+    "traffic_camera": [
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "JoinedJunction",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "TrafficLights",
+            "m_endFlagsForbidden": "LevelCrossing",
+            "m_colorMode": "Default",
+            "m_prop": "1959183067.CSUR CCTV_Data",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "0",
+                    "0",
+                    "0"
+                ]
+            },
+            "m_angle": "90",
+            "m_segmentOffset": "1",
+            "m_repeatDistance": "0",
+            "m_minLength": "0",
+            "m_cornerAngle": "0.5",
+            "m_probability": "100"
+        },
+    ]
     "intersection_side": [
         {
             "m_flagsRequired": "None",
@@ -350,30 +352,6 @@
             "m_repeatDistance": "0",
             "m_minLength": "0",
             "m_cornerAngle": "0",
-            "m_probability": "100"
-        },
-        {
-            "m_flagsRequired": "None",
-            "m_flagsForbidden": "JoinedJunction",
-            "m_startFlagsRequired": "None",
-            "m_startFlagsForbidden": "None",
-            "m_endFlagsRequired": "TrafficLights",
-            "m_endFlagsForbidden": "LevelCrossing",
-            "m_colorMode": "Default",
-            "m_prop": "1959183067.CSUR CCTV_Data",
-            "m_tree": null,
-            "m_position": {
-                "float": [
-                    "0",
-                    "0",
-                    "0"
-                ]
-            },
-            "m_angle": "90",
-            "m_segmentOffset": "1",
-            "m_repeatDistance": "0",
-            "m_minLength": "0",
-            "m_cornerAngle": "0.5",
             "m_probability": "100"
         },
         {
