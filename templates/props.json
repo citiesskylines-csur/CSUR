@@ -279,8 +279,8 @@
             "m_minLength": "0",
             "m_cornerAngle": "0.5",
             "m_probability": "100"
-        },
-    ]
+        }
+    ],
     "intersection_side": [
         {
             "m_flagsRequired": "None",
