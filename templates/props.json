@@ -212,7 +212,7 @@
             "m_endFlagsRequired": "None",
             "m_endFlagsForbidden": "None",
             "m_colorMode": "StartState",
-            "m_prop": "Traffic Light 01",
+            "m_prop": "1959183067.CSUR MidSign_Data",
             "m_tree": null,
             "m_position": {
                 "float": [
@@ -359,8 +359,8 @@
             "m_startFlagsForbidden": "None",
             "m_endFlagsRequired": "TrafficLights",
             "m_endFlagsForbidden": "LevelCrossing",
-            "m_colorMode": "EndState",
-            "m_prop": "Traffic Light 01 Mirror",
+            "m_colorMode": "Default",
+            "m_prop": "1959183067.CSUR CCTV_Data",
             "m_tree": null,
             "m_position": {
                 "float": [

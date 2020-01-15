@@ -98,6 +98,10 @@ def apply_invert(props):
                     newprop["m_prop"] += " Mirror"
                 elif newprop["m_prop"] in ["Traffic Light 0 Mirror", "Traffic Light 02 Mirror"]:
                     newprop["m_prop"] = newprop["m_prop"].strip(" Mirror")
+                elif newprop["m_prop"] == "1959183067.CSUR MidSign_Data":
+                    newprop["m_prop"] = "1959183067.CSUR MidSign Mirror_Data"
+                elif newprop["m_prop"] == "1959183067.CSUR MidSign Mirror_Data":
+                    newprop["m_prop"] = "1959183067.CSUR MidSign_Data"
             new_props[i].append(newprop)
     return tuple(new_props)
 

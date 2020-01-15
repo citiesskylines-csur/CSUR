@@ -22,9 +22,9 @@
     },
     "light": {
         "median_gnd": ["1826488681.Stainless Avenue Light_Data", 0],
-        "median_elv": ["1826488681.Stainless Avenue Light_Data", 0.2],
+        "median_elv": ["1959183067.CSUR ElevatedLightDouble_Data", 0.2],
         "side_gnd": ["1826488681.Stainless Street Light_Data", 0],
-        "side_elv": ["1228724586.R69 Expressway Light_Data", 0.2],
+        "side_elv": ["1959183067.CSUR ElevatedLight_Data", 0.2],
         "side_tun": ["Wall Light White", 0]
     },
     "tree": {
