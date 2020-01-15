@@ -460,7 +460,13 @@ class CSURFactory():
         return Ramp(start, end, [x0_start, x0_end])
     
     def get_shift(self, lane_lefts, *blocks, n_median=[1, 1]):
-        units, x0 = CSURFactory.get_units(self.mode, lane_lefts[0], *blocks)
+        if lane_lefts[0] > -Segment.widths[Segment.MEDIAN] * sum(*blocks) \
+            or lane_lefts[1] > -Segment.widths[Segment.MEDIAN] * sum(*blocks):
+            force_single_roadside = True
+        else:
+            force_single_roadside = False
+        units, x0 = CSURFactory.get_units(self.mode, lane_lefts[0], *blocks,
+                    force_single_roadside=force_single_roadside)
         return Shift(units, units, [x0, x0 - lane_lefts[0] + lane_lefts[1]])
 
     def get_access(self, lane_left, gnd_road, i_a, n_a, reverse=False):
@@ -470,7 +476,6 @@ class CSURFactory():
         p = 0
         while (start[p] != Segment.LANE):
             p += 1
-            
         # locate (i_a)th lane
         p += i_a - 1
         # Replace (n_a + 1) lanes with n_a lanes and 2 channels
