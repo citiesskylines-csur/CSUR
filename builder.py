@@ -265,10 +265,12 @@ class Builder:
                     l.pop(ntot - i - 1)
         for r in undivided_base:
             self.twoway.append(TwoWayAsset(r, r))
+
         if self.ASYM_SLIPLANE:
             for r1, r2 in product(undivided_base, repeat=2):
                 if r2.nl() - r1.nl() == 1:
                     self.twoway.append(TwoWayAsset(r1, r2))
+
         for r in flatten(self.base):
             # make base segments less than 1.5u median two-way
             # make other > 2 lanes also twoway:
@@ -277,7 +279,7 @@ class Builder:
         
         # make comp segments with more than 4 lanes two-way
         for r in flatten([[x for x in self.comp[2] if x.x0() == 0]] + self.comp[3:]):
-            if r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE and (r.x0() == 0 or r.get_blocks()[0].nlanes > 1):
+            if 0 <= r.x0() <= self.MAX_TWOWAY_MEDIAN * SW.LANE and (r.x0() == 0 or r.get_blocks()[0].nlanes > 1):
                 self.twoway.append(TwoWayAsset(r, r))
 
         # find all undivided interface segments
@@ -294,14 +296,14 @@ class Builder:
             if self.trans[i].is_undivided():
                 r = self.trans.pop(i)
                 undivided_interface.append(r)
-                if r.ntot_start() < r.ntot_end():
+                if min(r.xleft) >= 0 and r.ntot_start() < r.ntot_end():
                     undivided_interface_sorted.append(r)
         for i in range(len(self.ramp) - 1, -1, -1):
             if self.ramp[i].is_undivided():
                 r = self.ramp.pop(i)
                 if self.ramp[i].nblock() < 5:
                     undivided_interface.append(r)
-                    if r not in undivided_interface_sorted and reverse(r) not in undivided_interface_sorted:
+                    if min(r.xleft) >= 0 and  r not in undivided_interface_sorted and reverse(r) not in undivided_interface_sorted:
                         undivided_interface_sorted.append(reverse(r))
         for r in undivided_interface_sorted:
             self.twoway.append(TwoWayAsset(r, r))
@@ -373,6 +375,14 @@ class Builder:
                              and abs(x.get_blocks()[0][0].nlanes - x.get_blocks()[1][0].nlanes) < 3\
                              and x.get_blocks()[0][1].x_left - x.get_blocks()[0][0].x_right == SW.MEDIAN]
         assets['twoway'] = self.twoway
+        # test assets
+        for v in assets.values():
+            for r in v:
+                try:
+                    for m in ['g', 'e']:
+                        r.get_model(m)
+                except Exception as e:
+                    print("Asset %s failed: %s" % (r, e))
         return assets
 
     def get_variants(self):

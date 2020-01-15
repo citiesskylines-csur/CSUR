@@ -21,7 +21,8 @@ def make(workdir, names_raw, reverse=False, interpolation=None, output_path='out
         maker.modeler.set_interp_type(interpolation)
     for name, asset in zip(names, assets):
         if os.path.exists(os.path.join(output_path, '%s_data.xml' % (str(asset.get_model('g')).split()[0] + ' ' + name))):
-            print(name, "already built, skipping")
+            print(str(asset.get_model('g')).split()[0] + ' ' + name, "already built, skipping")
+            maker.assets_made.append(str(asset.get_model('g')).split()[0] + ' ' + name)
         else:
             if 'express' in name:
                 maker.make_singlemode(asset, 'ge')
@@ -40,6 +41,7 @@ def make(workdir, names_raw, reverse=False, interpolation=None, output_path='out
         f.writelines(made)
 
 def asset_from_name(name, reverse=False):
+    print("Compiling", name)
     is_twoway = 'D' in name or DIRECTION_SEPERATOR in name
     if SEGMENT_END_SEPERATOR in name:
         name = name.split(SEGMENT_END_SEPERATOR)

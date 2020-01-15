@@ -11,6 +11,9 @@ Wrapper function to allow operating the function on lists.
 def list_op(func):
     def wrapper(obj, *args, **kwargs):
         if isinstance(obj, list):
+            if "in_place" in kwargs:
+                if kwargs["in_place"] == False:
+                    obj = deepcopy(obj)
             for i, o in enumerate(obj):
                 obj[i] = func(o, *args, **kwargs)
             return obj
@@ -93,6 +96,9 @@ def apply_invert(props):
             newprop[key] = " ".join(flags)
             if i == 1:
                 flip(newprop, mirror_position=False, in_place=True)
+                # the Z position of the flipped prop still needs to be inverted
+                zpos = float(newprop["m_position"]["float"][2])
+                newprop["m_position"]["float"][2] = str(-zpos)
                 # also need to mirror traffic lights
                 if newprop["m_prop"] in ["Traffic Light 01", "Traffic Light 02"]:
                     newprop["m_prop"] += " Mirror"
@@ -102,6 +108,10 @@ def apply_invert(props):
                     newprop["m_prop"] = "1959183067.CSUR MidSign Mirror_Data"
                 elif newprop["m_prop"] == "1959183067.CSUR MidSign Mirror_Data":
                     newprop["m_prop"] = "1959183067.CSUR MidSign_Data"
+                elif newprop["m_prop"] == "1959183067.CSUR CCTV_Data":
+                    newprop["m_prop"] = "1959183067.CSUR CCTV Mirror_Data"
+                elif newprop["m_prop"] == "1959183067.CSUR CCTV Mirror_Data":
+                    newprop["m_prop"] = "1959183067.CSUR CCTV_Data"
             new_props[i].append(newprop)
     return tuple(new_props)
 

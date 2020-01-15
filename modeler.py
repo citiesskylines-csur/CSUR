@@ -311,7 +311,7 @@ class Modeler:
                     x_right = [x_left[0] + 3 * LANEWIDTH / 4 - lb, x_left[1] + 3 * LANEWIDTH /4 - lb]
                     objs_created.append(place_unit(obj, x_left, x_right))
                 else:
-                    if Segment.SIDEWALK in units[p + nblocks:] and busstop in ['single', 'double']:
+                    if not Segment.LANE in units[p + nblocks:] and Segment.SIDEWALK in units[p + nblocks:] and busstop in ['single', 'double']:
                         obj = self.objs['LANE']['lane_f']
                         x_right = [x_left[0] + LANEWIDTH / 2, x_left[1] + LANEWIDTH /2]
                     else:

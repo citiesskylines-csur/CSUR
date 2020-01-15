@@ -270,13 +270,13 @@
                 "float": [
                     "0",
                     "0",
-                    "0"
+                    "-4"
                 ]
             },
             "m_angle": "90",
             "m_segmentOffset": "1",
             "m_repeatDistance": "0",
-            "m_minLength": "0",
+            "m_minLength": "8",
             "m_cornerAngle": "0.5",
             "m_probability": "100"
         }
@@ -302,7 +302,7 @@
             "m_angle": "90",
             "m_segmentOffset": "-0.8",
             "m_repeatDistance": "0",
-            "m_minLength": "0",
+            "m_minLength": "24",
             "m_cornerAngle": "0",
             "m_probability": "100"
         },
@@ -326,7 +326,7 @@
             "m_angle": "0",
             "m_segmentOffset": "-0.8",
             "m_repeatDistance": "0",
-            "m_minLength": "0",
+            "m_minLength": "24",
             "m_cornerAngle": "0",
             "m_probability": "100"
         },

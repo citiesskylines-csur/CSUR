@@ -15,6 +15,7 @@ class AssetMaker:
     FENCE = False
     REDUCED_LANE_SHIFT = False
     PILLAR = False
+    PROP_ALWAYS_REPEAT = False
 
 
 
@@ -315,29 +316,29 @@ class AssetMaker:
         if asset.is_twoway() and not seg:
             seg = asset.get_model(mode)
             self.__create_lanes(asset, mode, seg=seg.left, reverse=True, brt=brt)
-            if not asset.is_undivided() and mode[0] == 'g':
+            if not asset.is_undivided():
                 median_lane = deepcopy(self.lanes['median'])
                 # add traffic lights and road lights to median, lane position is always 0 to let NS2 work
                 median_pos = (min(seg.right.x_start[0], seg.right.x_end[0]))
-                if mode[0] in "ge" and asset.append_median:
+                if (mode[0] == "g" or (mode[0] == "e" and asset.n_median_min() <= 2)) and asset.append_median:
                     prop_utils.add_props(median_lane, median_pos, self.props["light_median"])
                 if mode[0] == "t" and asset.roadtype == 'b':
                     light_r = seg.right.x_start[seg.right.start.index(Segment.LANE)] - SW.BARRIER
                     light_l = -seg.left.x_start[seg.left.start.index(Segment.LANE)] + SW.BARRIER
                     # light at right side of the median is flipped (equiv. left barrier)
-                    prop_utils.add_props(median_lane, light_r, prop_utils.flip(self.props["light_tunnel"]))
+                    prop_utils.add_props(median_lane, light_r, prop_utils.flip(deepcopy(self.props["light_tunnel"])))
                     prop_utils.add_props(median_lane, light_l, self.props["light_tunnel"])
                 if asset.has_trafficlight():
                     # wide median is used if the road is wider than 6L
                     if (asset.right.xleft[0] + asset.left.xleft[0]) > 2 * SW.LANE:
                         if asset.nl_min() > 3:
-                            prop_set = self.props["intersection_widemedian"]
+                            prop_set = deepcopy(self.props["intersection_widemedian"])
                             xl = -asset.left.xleft[0] + SW.CURB
                             xr = asset.right.xleft[0] - SW.CURB
                             prop_utils.add_intersection_props(median_lane, xr, prop_set) 
                             prop_utils.add_intersection_props(median_lane, xl, prop_utils.flip(prop_set))
                     else:
-                        prop_set = self.props["intersection_median"]
+                        prop_set = deepcopy(self.props["intersection_median"])
                         prop_utils.add_intersection_props(median_lane, median_pos, prop_set) 
                         prop_utils.add_intersection_props(median_lane, median_pos, prop_utils.flip(prop_set))
                 self.assetdata[modename]['m_lanes']['Lane'].append(median_lane)
@@ -430,7 +431,7 @@ class AssetMaker:
                         if seg.start[i_side] == Segment.MEDIAN:
                             sidewalk_pos += SW.MEDIAN / 2 + SW.BIKE + SW.CURB
                         # add lights and trees
-                        if not AssetMaker.REDUCED_LANE_SHIFT or seg.x_start[i_side] == seg.x_end[i_side]:
+                        if AssetMaker.PROP_ALWAYS_REPEAT or seg.x_start[i_side] == seg.x_end[i_side]:
                             prop_utils.add_props(lane, prop_pos, self.props["light_side"], height=height)
                             if mode == 'g':
                                 prop_utils.add_props(lane, prop_pos, self.props["tree_side"], height=height)
@@ -448,7 +449,7 @@ class AssetMaker:
                                 for t in tree:
                                     t["m_repeatDistance"] = "0"
                                     t["m_segmentOffset"] = str(z)
-                                deltax = (seg.x_end[i_side] - seg.x_start[i_side]) * z
+                                deltax = (seg.x_end[i_side] - seg.x_start[i_side]) * z if AssetMaker.REDUCED_LANE_SHIFT else 0
                                 prop_utils.add_props(lane, prop_pos + deltax, tree, height=height)
                         # add intersection props
                         if asset.has_trafficlight():
@@ -515,16 +516,20 @@ class AssetMaker:
                         busstop_lane["m_stopOffset"] = "-3" if reverse else "3"
                 else:
                     busstop_lane["m_stopOffset"] = "-0.3" if reverse else "0.3"
-                    busstop_lane["m_laneType"] = "TransportVehicle"
-            # combine barrier lanes with the closest traffic lane
+                    busstop_lane["m_laneType"] = "TransportVehicle"    
             lanes = self.assetdata[modename]['m_lanes']['Lane']
             lanes.sort(key=lambda l: float(l["m_position"]))
+
+            '''
+            DO NOT COMBINE BARRIER LANES!
+            This will cause misposition in left-hand traffic mode
             if lanes[0]["m_laneType"] == "None":
                 prop_utils.combine_props(lanes[0], lanes[1])
                 lanes.pop(0)
             if lanes[-1]["m_laneType"] == "None":
                 prop_utils.combine_props(lanes[-1], lanes[-2])
                 lanes.pop(-1)
+            '''
 
     def __get_mediancode(self, asset):
         if not asset.is_twoway():
@@ -604,7 +609,7 @@ class AssetMaker:
             # change min corner offset, increase the size of intersections
             # for roads wider than 6L
             # only apply to base modules
-            if mode[0] == 'g' and asset.roadtype == 'b':
+            if mode[0] == 'g' and (asset.roadtype == 'b' or uturn):
                 #if min(asset.get_dim()) > 6 * SW.LANE:
                 #    scale = 1 + (min(asset.get_dim()) - 3 * SW.LANE) / (SW.LANE * 20)
                 #else:
@@ -876,15 +881,15 @@ class AssetMaker:
         self.__create_lanes(delegate, 'g')
         self.__write_netAI(delegate, 'g')
         self.__write_info(asset, 'g', uturn=True)
-        if asset.right.n_tot_start() + 1 == asset.right.n_tot_end():
+        if asset.right.ntot_start() + 1 == asset.right.ntot_end():
             imax = 0
             xmax = -1000
-            for i, lane in enumerate(self.assetdata[modename]['m_lanes']['Lane']):
+            for i, lane in enumerate(self.assetdata['basic']['m_lanes']['Lane']):
                 if lane["m_direction"] == "Backward" and lane["m_vehicleType"] == "Car" \
                     and float(lane["m_position"]) >= xmax:
                     xmax = float(lane["m_position"])
                     imax = i
-            self.assetdata[modename]['m_lanes']['Lane'].pop(i)     
+            self.assetdata['basic']['m_lanes']['Lane'].pop(imax)     
         self.__apply_skin(asset, 'g')
         self.assetdata["basic"]["m_connectGroup"] = self.get_connectgroup(self.__get_mediancode(asset))
         self.writetoxml(asset)

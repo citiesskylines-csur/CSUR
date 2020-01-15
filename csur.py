@@ -460,8 +460,9 @@ class CSURFactory():
         return Ramp(start, end, [x0_start, x0_end])
     
     def get_shift(self, lane_lefts, *blocks, n_median=[1, 1]):
-        if lane_lefts[0] > -Segment.widths[Segment.MEDIAN] * sum(*blocks) \
-            or lane_lefts[1] > -Segment.widths[Segment.MEDIAN] * sum(*blocks):
+        nl = blocks[0] if isinstance(*blocks, int) else sum(*blocks)
+        if lane_lefts[0] > -Segment.widths[Segment.MEDIAN] * nl \
+            or lane_lefts[1] > -Segment.widths[Segment.MEDIAN] * nl:
             force_single_roadside = True
         else:
             force_single_roadside = False
