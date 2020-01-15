@@ -309,7 +309,7 @@ class CSURFactory():
                 # ground road with parking space
                 'gp': [Segment.PARKING, Segment.CURB, Segment.SIDEWALK],
                 # expressway
-                'ex': [Segment.SHOULDER, Segment.BARRIER],
+                'ex': [Segment.SHOULDER, Segment.SHOULDER, Segment.BARRIER],
                 # elevated 
                 'e': [Segment.BARRIER],
                 # bridge
@@ -324,7 +324,7 @@ class CSURFactory():
                 'b': Segment.BARRIER, 'ex': Segment.BARRIER,
                 's': Segment.BARRIER, 't': Segment.BARRIER}
     
-    def get_units(mode, lane_left, *blocks, n_median=1, prepend_median=False):
+    def get_units(mode, lane_left, *blocks, n_median=1, prepend_median=False, force_single_roadside=False):
         roadside = CSURFactory.roadside[mode]
         units = []
         # traffic lanes
@@ -334,7 +334,7 @@ class CSURFactory():
         if prepend_median and lane_left == Segment.widths[Segment.MEDIAN]:
             units.append(Segment.MEDIAN)
             segment_left = 0
-        elif lane_left > -Segment.widths[Segment.MEDIAN] * sum(blocks):
+        elif force_single_roadside or lane_left > -Segment.widths[Segment.MEDIAN] * sum(blocks):
             units.append(CSURFactory.road_in[mode])
             segment_left = lane_left - Segment.widths[CSURFactory.road_in[mode]]
         else:
@@ -393,8 +393,15 @@ class CSURFactory():
         return BaseRoad(units, x0)
     
     def get_transition(self, lane_lefts, n_lanes, left=False):
-        start, x0_start = CSURFactory.get_units(self.mode, lane_lefts[0], n_lanes[0], prepend_median=False)
-        end, x0_end = CSURFactory.get_units(self.mode, lane_lefts[1], n_lanes[1], prepend_median=False)
+        if lane_lefts[0] > -Segment.widths[Segment.MEDIAN] * n_lanes[0] \
+            or lane_lefts[1] > -Segment.widths[Segment.MEDIAN] * n_lanes[1]:
+            force_single_roadside = True
+        else:
+            force_single_roadside = False
+        start, x0_start = CSURFactory.get_units(self.mode, lane_lefts[0], n_lanes[0], 
+                            prepend_median=False, force_single_roadside=force_single_roadside)
+        end, x0_end = CSURFactory.get_units(self.mode, lane_lefts[1], n_lanes[1],
+                            prepend_median=False, force_single_roadside=force_single_roadside)
         if left:
             p, inc = 0, 1
         else:
@@ -416,14 +423,22 @@ class CSURFactory():
             # t: which end is the main road
             t = len(n_lanes[0]) > len(n_lanes[1])
             return self.get_access(lane_lefts[0], n_lanes[t][0], n_lanes[1-t][0] + 1, n_lanes[1-t][1], reverse=t)
+
+        if lane_lefts[0] > -Segment.widths[Segment.MEDIAN] * sum(n_lanes[0]) \
+            or lane_lefts[1] > -Segment.widths[Segment.MEDIAN] * sum(n_lanes[1]):
+            force_single_roadside = True
+        else:
+            force_single_roadside = False
         start, x0_start = CSURFactory.get_units(self.mode, 
                                                 lane_lefts[0], n_lanes[0],
                                                 n_median=n_median[0], 
-                                                prepend_median=False)
+                                                prepend_median=False,
+                                                force_single_roadside=force_single_roadside)
         end, x0_end = CSURFactory.get_units(self.mode, 
                                             lane_lefts[1], n_lanes[1],
                                             n_median=n_median[1],
-                                            prepend_median=False)
+                                            prepend_median=False,
+                                            force_single_roadside=force_single_roadside)
         p = 0
         while p < len(start):
             while p < len(start) and start[p] == end[p]:
