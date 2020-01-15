@@ -874,6 +874,15 @@ class AssetMaker:
         self.__create_lanes(delegate, 'g')
         self.__write_netAI(delegate, 'g')
         self.__write_info(asset, 'g', uturn=True)
+        if asset.right.n_tot_start() + 1 == asset.right.n_tot_end():
+            imax = 0
+            xmax = -1000
+            for i, lane in enumerate(self.assetdata[modename]['m_lanes']['Lane']):
+                if lane["m_direction"] == "Backward" and lane["m_vehicleType"] == "Car" \
+                    and float(lane["m_position"]) >= xmax:
+                    xmax = float(lane["m_position"])
+                    imax = i
+            self.assetdata[modename]['m_lanes']['Lane'].pop(i)     
         self.__apply_skin(asset, 'g')
         self.assetdata["basic"]["m_connectGroup"] = self.get_connectgroup(self.__get_mediancode(asset))
         self.writetoxml(asset)
