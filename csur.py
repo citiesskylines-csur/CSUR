@@ -271,7 +271,14 @@ class TwoWay(Segment):
     def roadtype(self):
         typestring = (self.left.roadtype() + self.right.roadtype()).strip("b")
         if len(typestring) > 1 and typestring[0] != typestring[1]:
-            raise Exception("Invalid two-way construction!")
+            if 'r' in typestring: 
+                self.roadtype = "r"
+            elif 't' in typestring:
+                self.roadtype = "t"
+            elif 's' in typestring:
+                self.roadtype = "s"
+            else:
+                raise Exception("Invalid two-way construction!: %s,%s" % (self.left, self.right))
         return "b" if typestring == "" else typestring[0]
 
 

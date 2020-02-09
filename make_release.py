@@ -1,6 +1,6 @@
 import os, sys
 sys.path.append(os.getcwd())
-from compiler import make
+from assetmaker import make
 
 if sys.argv[5] == 'all':
     args = os.listdir('release/input/')

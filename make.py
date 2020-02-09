@@ -1,6 +1,6 @@
 import os, sys, argparse
 sys.path.append(os.getcwd())
-from compiler import make
+from assetmaker import make
 
 if __name__ == "__main__": 
     custom_args = sys.argv[5:]

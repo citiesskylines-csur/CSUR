@@ -274,14 +274,17 @@ class Modeler:
                         objs_created.append(place_unit(obj, x_left, x_temp, preserve_uv=uvflag))
                         x_left = x_temp.copy()
                     else:
-                        obj = duplicate(self.objs['LANE']['lane_c'])
-                        scale_mode = 0
+                       
                         if x_left[0] != x_left[1] and x_right[0] != x_right[1] and x_left[1] - x_left[0] != x_right[1] - x_right[0]:
+                            obj = duplicate(self.objs['LANE']['lane_f'])
                             obj = place_unit(obj, [0, 0], 
                                                   [max(x_right[0] - x_left[0], EPS/2), max(x_right[1] - x_left[1], EPS/2)],
-                                                   preserve_uv=1, interpolation='linear', copy=False)
+                                                   preserve_uv=0, interpolation='linear', copy=False)
                             uvflag = 0
                             scale_mode = 2
+                        else:
+                            obj = duplicate(self.objs['LANE']['lane_c'])
+                            scale_mode = 0
                         objs_created.append(place_unit(obj, x_left, x_right, preserve_uv=uvflag, copy=False, scale_mode=scale_mode))    
                         x_left = x_right.copy()
                     lane_added += 1

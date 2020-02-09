@@ -164,7 +164,15 @@ class TwoWayAsset(Asset):
     def _infer_roadtype(self):
         typestring = (self.left.roadtype + self.right.roadtype).strip("b")
         if len(typestring) > 1 and typestring[0] != typestring[1]:
-            raise Exception("Invalid two-way construction!: %s,%s" % (self.left, self.right))
+            # priority: ramp > trans > shift
+            if 'r' in typestring: 
+                self.roadtype = "r"
+            elif 't' in typestring:
+                self.roadtype = "t"
+            elif 's' in typestring:
+                self.roadtype = "s"
+            else:
+                raise Exception("Invalid two-way construction!: %s,%s" % (self.left, self.right))
         self.roadtype = "b" if typestring == "" else typestring[0]
     
     def nl(self):

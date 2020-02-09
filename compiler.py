@@ -1,44 +1,6 @@
 import os
 from assets import Asset, BaseAsset, TwoWayAsset
-from assetmaker import AssetMaker
 from csur_naming import *
-
-def make(workdir, names_raw, reverse=False, interpolation=None, output_path='output'):
-    names = []
-    assets = []
-    variants = []
-    made = []
-    for x in names_raw:
-        asset = asset_from_name(x.split('_')[0])
-        assets.append(asset)
-        names.append(x.replace('_', ' '))
-        if reverse and asset.roadtype != 'b' and (not asset.is_twoway() or not asset.is_symmetric()):
-            asset_rev = asset_from_name(x.split('_')[0], reverse=True)
-            assets.append(asset_rev)
-            names.append(' '.join([str(asset_rev)] + x.split('_')[1:]))                   
-    maker = AssetMaker(workdir, output_path=output_path)
-    if interpolation:
-        maker.modeler.set_interp_type(interpolation)
-    for name, asset in zip(names, assets):
-        if os.path.exists(os.path.join(output_path, '%s_data.xml' % (str(asset.get_model('g')).split()[0] + ' ' + name))):
-            print(str(asset.get_model('g')).split()[0] + ' ' + name, "already built, skipping")
-            maker.assets_made.append(str(asset.get_model('g')).split()[0] + ' ' + name)
-        else:
-            if 'express' in name:
-                maker.make_singlemode(asset, 'ge')
-            elif 'compact' in name:
-                maker.make_singlemode(asset, 'gc')
-            elif 'uturn' in name:
-                maker.make_uturn(asset)
-            elif 'brt' in name:
-                maker.make_brt(asset)
-            else:
-                weave = not asset.is_twoway() and asset.roadtype == 'b' and asset.nblock() > 2
-                maker.make(asset, weave)
-        made.append(name + '\n')
-    maker.output_assets()
-    with open("done.txt", 'a') as f:
-        f.writelines(made)
 
 def asset_from_name(name, reverse=False):
     print("Compiling", name)
