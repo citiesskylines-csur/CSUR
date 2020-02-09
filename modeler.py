@@ -1127,7 +1127,7 @@ class Modeler:
         However, the CSUR code builds a DOWNWARD slope by default. This will require
         the slope model of a symmetric road (eg. 4DC, 6DR) to be rotated by 180 degrees
         to give the proper forward slope without requiring flags.
-        For asymmetric roads (eg.2R3-4R3, 4R), the upward and downward slopes are 
+        For asymmetrical roads (eg.2R3-4R3, 4R), the upward and downward slopes are 
         mirror images along the x-axis so they have to be modeled separately.
         The downward slope will always require the invert flag and the upward
         slope will always forbid the invert flag (see segment presets).
@@ -1184,7 +1184,7 @@ class Modeler:
                 reset_origin(junction)
             elements_l = Modeler.make_node(self, seg.left, mode, compatibility)
             elements_r = Modeler.make_node(self, seg.right, mode, compatibility)
-            # if the node is asymmetric then recenter the end of the node
+            # if the node is asymmetrical then recenter the end of the node
             # use halfcosine interpolation so two consecutive nodes can align
             '''
             cancels node for non-centered roads
@@ -1334,9 +1334,10 @@ class Modeler:
         median = [x for x in objs if x.location[0] < dc_median]
         lanes = [x for x in objs if dc_median <= x.location[0]]
         median = make_mesh(median)
-        lanes = make_mesh(lanes)
+        if lanes:
+            lanes = make_mesh(lanes)
+            reset_origin(lanes)
         reset_origin(median)
-        reset_origin(lanes)
         sidemedian = None
         #print(units)
         if not unprotect_bikelane:
@@ -1388,7 +1389,7 @@ class Modeler:
         # unprotect bike lanes is set to false because the markings are
         # already not kept straight
         else:
-            mode = 'g'
+            mode = CSURFactory.infer_ground_variation(seg)
             max_match = 0
             for k, v in CSURFactory.roadside.items():
                 if len(v) >= max_match and seg.right.start[-len(v):] == v:
@@ -1413,6 +1414,7 @@ class Modeler:
         median_r, lanes_r, sidemedian_r = self.__get_dc_components(dcnode_seg.left,
                                                         unprotect_bikelane=unprotect_bikelane, 
                                                         keep_all=False, central_channel=central_channel, flip_texture=False)
+        
         # DC node is reversed, so rotate the forward parts
         for x in [median_f, lanes_f, sidemedian_f]:
             if x is not None:
@@ -1426,11 +1428,13 @@ class Modeler:
         #mirror_uv(node)
         return node, sidemedian
 
-    # DC node which restores the symmetry using the side with fewer lanes
-    # eg. 5DC>4DR, 2R3-3R>4DR3
+    '''
+    Restores the symmetry of an asymmetrical road using the side with fewer lanes.
+    eg. 5DC>4DR, 2R3-3R>4DR3
+    '''
     def make_asym_restore_node(self, seg):
-        mode = 'g'
-        # asymmetric segment is place that the right (forward) side has more lanes
+        mode = CSURFactory.infer_ground_variation(seg)
+        # asymmetrical segment is place that the right (forward) side has more lanes
         if seg.left.n_lanes()[0] > seg.right.n_lanes()[0]:
             raise ValueError("Asymmetric segment should have more lanes on the right side!")
         if not seg.undivided:
@@ -1455,27 +1459,35 @@ class Modeler:
         return node, sidemedian, mediancode
 
     '''
-    Makes the inversion node for an asymmetric segment.
+    Makes the inversion node for an asymmetrical segment by moving the median but not changing 
+    its width.
     It can be fully inverted (eg. 2R-4R to 4R-2R) or invert by half into a symmetric segment
     (eg. 2R-4R to 3R-3R)
+    For undivided asymmetrical segments with odd lane difference, inverting in full is straightforward, while
+    inverting by half (moving the yellow line to the center) requires reducing one lane.
+    For example, 5DC is inverted by half into a 4DC.
     '''
     def make_asym_invert_node(self, seg, halved=False):
-        mode = 'g'
+        mode = CSURFactory.infer_ground_variation(seg)
         sidemedian = None
         if seg.left.n_lanes()[0] > seg.right.n_lanes()[0]:
             raise ValueError("Asymmetric segment should have more lanes on the right side!")
-        if seg.undivided and abs(seg.left.n_lanes()[0] - seg.right.n_lanes()[0]) % 2 == 1 and halved:
-            raise ValueError("Undivided segments with an odd lane difference must be inverted in full!")
+        #if seg.undivided and abs(seg.left.n_lanes()[0] - seg.right.n_lanes()[0]) % 2 == 1 and halved:
+        #    raise ValueError("Undivided segments with an odd lane difference must be inverted in full!")
         if seg.undivided or seg.left.decompose()[0].x_left > 0 \
             and seg.right.decompose()[0].x_left > 0:
             # for divided with a wide median, we can directly create a transition segment and make it a node
             blocks_f, blocks_r = seg.right.decompose(), seg.left.decompose()
             if halved:
-                dcnode_rev = CSURFactory(mode=mode, roadtype='b').get(blocks_f[0].x_left, blocks_f[0].nlanes)
+                if abs(seg.left.n_lanes()[0] - seg.right.n_lanes()[0]) % 2 == 1:
+                    dcnode_rev = CSURFactory(mode=mode, roadtype='s').get([0, blocks_r[0].x_left], blocks_r[0].nlanes)
+                else:
+                    dcnode_rev = CSURFactory(mode=mode, roadtype='b').get(blocks_f[0].x_left, blocks_f[0].nlanes)
                 dcnode_fwd = CSURFactory(mode=mode, roadtype='t').get(
-                                        [blocks_r[0].x_left, blocks_f[0].x_left], 
-                                        [blocks_r[0].nlanes, blocks_f[0].nlanes],
+                                        [blocks_f[0].x_left, 0], 
+                                        [blocks_f[0].nlanes, blocks_r[0].nlanes],
                                     left=(blocks_f[0].x_left!=blocks_r[0].x_left))
+                # print(dcnode_rev, dcnode_fwd)
                 asym_forward_node, sidemedian = Modeler.convert_to_dcnode(self, csur.TwoWay(dcnode_rev, dcnode_fwd))
             else:
                 dcnode_fwd = CSURFactory(mode=mode, roadtype='t').get(
@@ -1486,8 +1498,11 @@ class Modeler:
                 asym_forward_node, struc = Modeler.make(self, csur.TwoWay(dcnode_rev, dcnode_fwd))
                 delete(struc)
             asym_forward_node.rotation_euler[2] = 3.1415926536
+            if sidemedian:
+                sidemedian.rotation_euler[2] = 3.1415926536
             transform_apply(asym_forward_node, rotation=True)
             new_median = [blocks_f[0].x_left + LANEWIDTH/2] * 2
+            # print(new_median)
         else:
             # for the divided with 1L median case, we first lay down the road surface entirely using lanes
             # for example, put a 7C for 2R3-4R3
@@ -1536,8 +1551,8 @@ class Modeler:
     # tempoarily use ramp module (easier)
     # dlanes: the number of express lanes to increase
     def make_local_express_dc_node(self, seg, dlanes):
-        mode = 'g'
-        # asymmetric segment is place that the right (forward) side has more lanes
+        mode = CSURFactory.infer_ground_variation(seg)
+        # asymmetrical segment is place that the right (forward) side has more lanes
         if len(seg.right.decompose()) != 2:
             raise ValueError("Not a local-express road!")
         blocks = seg.right.decompose()

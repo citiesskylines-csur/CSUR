@@ -213,6 +213,9 @@ Also merges overlapping vertices.
 '''
 @selection_safe
 def make_mesh(objs, merge=True):
+    # return None if there is nothing in objs
+    if not objs:
+        return None
     bpy.context.view_layer.objects.active = objs[0]
     [o.select_set(True) for o in objs if o]
     bpy.ops.object.join()

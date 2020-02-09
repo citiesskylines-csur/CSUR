@@ -802,17 +802,15 @@ class AssetMaker:
                             if 2 < target_median < my_sidemedian:
                                 self.__create_local_express_dcnode(asset, target_median)
             else:
-                if asset.nl() > 3:
-                    if not asset.is_undivided():
-                        self.__create_dcnode(asset, mode)
-                        self.__create_dcnode(asset, mode, asym_mode='expand')
-                        # Asym roads whose center is not convered by median
-                        # this implies the number of lanes are at least different by 2 
-                        # between both sides
-                        if n_central_median[0] > n_central_median[1] and n_central_median[0] + n_central_median[1] > 2:
-                            self.__create_dcnode(asset, mode, target_median=str(n_central_median[0]) + str(-n_central_median[1]))
-                    self.__create_dcnode(asset, mode, asym_mode='invert')   
-                    self.__create_dcnode(asset, mode, asym_mode='restore')
+                self.__create_dcnode(asset, mode)
+                self.__create_dcnode(asset, mode, asym_mode='expand')
+                # Asym roads whose center is not convered by median
+                # this implies the number of lanes are at least different by 2 
+                # between both sides
+                if n_central_median[0] > n_central_median[1] and n_central_median[0] + n_central_median[1] > 2:
+                    self.__create_dcnode(asset, mode, target_median=str(n_central_median[0]) + str(-n_central_median[1]))
+                self.__create_dcnode(asset, mode, asym_mode='invert')   
+                self.__create_dcnode(asset, mode, asym_mode='restore')
     
     def make(self, asset, weave=False):
         self.__initialize_assetinfo(asset)

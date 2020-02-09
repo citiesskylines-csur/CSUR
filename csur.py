@@ -380,6 +380,23 @@ class CSURFactory():
         else:
             raise ValueError("Invalid road type!")
         return segtype(start_new, end_new, x_left=[left_seg.x_start[0], left_seg.x_end[0]])
+
+    '''
+    Infers the ground variation of the road given its segment.
+    Variations include ground normal [g], ground express [ge],
+    ground compact [gc], ground parking [gp].
+    '''
+    def infer_ground_variation(seg):
+        if isinstance(seg, TwoWay):
+            return CSURFactory.infer_ground_variation(seg.right)
+        # needs to always screen from larger roadside to smaller.
+        # e.g., both [g] and [gc] have the same seg[-2:]
+        for mode in ['g', 'gp', 'gc', 'ge']:
+            # this order is important!
+            if seg.start[-len(CSURFactory.roadside[mode]):] == CSURFactory.roadside[mode]:
+                return mode
+        return NotImplementedError("Unknown ground road variation!")
+            
     
     def __init__(self, mode='e', roadtype='b'):
         self.mode = mode
@@ -503,3 +520,5 @@ class CSURFactory():
             return Ramp(start, end, x_left=[x0, x0])
         else: 
             return Ramp(end, start, x_left=[x0, x0])
+
+
