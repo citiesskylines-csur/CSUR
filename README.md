@@ -1,8 +1,8 @@
-# Cities: Skylines Urban Road [Work in progress]
+# Cities: Skylines Urban Road
 
 Cities: Skylines Urban Road (CSUR) is a fully modular road asset framework for Cities: Skylines created by procedural content generation and asset packaging.
 
-**CSUR is currently undergoing extensive debugging and playtesting.** With more than 10000 generated models packaged into more than 2000 game assets, debugging and playtesting is a complex and lengthy process and we greatly appreciate your patience while awaiting the Steam Workshop release. The [CSUR Official Website](https://citiesskylines-csur.github.io/) is also under construction. **Complete API documentation and model/texture specification for procedual generation will follow soon after the assets are released.** 
+CSUR has been released onto [the Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=1959216109). The [CSUR Official Website](https://csur.fun) is also under construction. **Complete API documentation and model/texture specification for procedual generation will follow soon.** 
 
 ![Ground road lineup](https://github.com/victoriacity/CSUR/blob/master/render.png)
 
