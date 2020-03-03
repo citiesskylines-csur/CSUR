@@ -13,7 +13,7 @@ LANEWIDTH = csur.LANEWIDTH
 Creates CSUR models.
 '''
 class Modeler:
-    
+
     '''
     Constants for unit types
     Null is the default modeling settings; different from Segment.EMPTY
@@ -25,7 +25,7 @@ class Modeler:
     BRIDGE = 4
     TUNNEL = 5
     SLOPE = 6
-    
+
 
     def __init__(self, config_file, bridge=False, tunnel=True, lod=False, optimize=False):
         self.config = configparser.ConfigParser()
@@ -43,26 +43,28 @@ class Modeler:
         self.lod = lod
         self.optimize = optimize
         # road_d is the Default texture map
-        self.textures = {'d':{}}
-        self.textures['d'][Modeler.NULL] = bpy.data.images.load(
-                                filepath=os.path.join(self.texpath, self.config['TEX']['road_d']))
-        self.textures['d'][Modeler.NODE] = bpy.data.images.load(
-                                filepath=os.path.join(self.texpath, self.config['TEX']['node_d']))
-        self.textures['d']['BRT'] = bpy.data.images.load(
-                                filepath=os.path.join(self.texpath, self.config['TEX']['brt_d']))
-        self.textures['d']['SB'] = bpy.data.images.load(
-                                filepath=os.path.join(self.texpath, self.config['TEX']['sound_barrier_d']))
+        self.textures = None
+        if not self.optimize:
+            self.textures = {'d':{}}
+            self.textures['d'][Modeler.NULL] = bpy.data.images.load(
+                                    filepath=os.path.join(self.texpath, self.config['TEX']['road_d']))
+            self.textures['d'][Modeler.NODE] = bpy.data.images.load(
+                                    filepath=os.path.join(self.texpath, self.config['TEX']['node_d']))
+            self.textures['d']['BRT'] = bpy.data.images.load(
+                                    filepath=os.path.join(self.texpath, self.config['TEX']['brt_d']))
+            self.textures['d']['SB'] = bpy.data.images.load(
+                                    filepath=os.path.join(self.texpath, self.config['TEX']['sound_barrier_d']))
 
-        self.textures['d'][Modeler.SIDEWALK] = bpy.data.images.load(
-                                filepath=os.path.join(self.texpath, self.config['TEX']['sidewalk_d']))
-        self.textures['d'][Modeler.ELEVATED] = bpy.data.images.load(
-                                filepath=os.path.join(self.texpath, self.config['TEX']['elevated_d']))
-        if self.bridge:
-            self.textures['d'][Modeler.BRIDGE] = bpy.data.images.load(
-                                    filepath=os.path.join(self.texpath, self.config['TEX']['bridge_d']))
-        if self.tunnel:
-            self.textures['d'][Modeler.TUNNEL] = bpy.data.images.load(
-                                    filepath=os.path.join(self.texpath, self.config['TEX']['tunnel_d']))                        
+            self.textures['d'][Modeler.SIDEWALK] = bpy.data.images.load(
+                                    filepath=os.path.join(self.texpath, self.config['TEX']['sidewalk_d']))
+            self.textures['d'][Modeler.ELEVATED] = bpy.data.images.load(
+                                    filepath=os.path.join(self.texpath, self.config['TEX']['elevated_d']))
+            if self.bridge:
+                self.textures['d'][Modeler.BRIDGE] = bpy.data.images.load(
+                                        filepath=os.path.join(self.texpath, self.config['TEX']['bridge_d']))
+            if self.tunnel:
+                self.textures['d'][Modeler.TUNNEL] = bpy.data.images.load(
+                                        filepath=os.path.join(self.texpath, self.config['TEX']['tunnel_d']))
 
         #load models:
         self.objs = {'LANE': {}, 'GROUND': {}, 'NODE': {}, 'ELEVATED': {}, 'BRIDGE': {}, 'TUNNEL': {}, 'SLOPE': {}, 'SPECIAL': {}}
@@ -87,7 +89,7 @@ class Modeler:
                 obj = self.__load(v, objectname='CSUR_gnd_' + k, type='BRT', recenter=False)
             else:
                 obj = self.__load(v, objectname='CSUR_gnd_' + k)
-            
+
             self.objs['GROUND'][k] = obj
             obj.hide_set(True)
 
@@ -100,7 +102,7 @@ class Modeler:
             obj = self.__load(v, objectname='CSUR_special_' + k)
             self.objs['SPECIAL'][k] = obj
             obj.hide_set(True)
-        
+
         if self.bridge:
             for k, v in self.config['BRIDGE'].items():
                 obj = self.__load(v, objectname='CSUR_bdg_' + k, type=Modeler.BRIDGE)
@@ -115,7 +117,7 @@ class Modeler:
                 obj = self.__load(v, objectname='CSUR_slp_' + k, type=Modeler.TUNNEL, recenter=False)
                 self.objs['SLOPE'][k] = obj
                 obj.hide_set(True)
-        
+
         # optimized mode does not use material
         if self.optimize:
             wipe_materials()
@@ -128,8 +130,7 @@ class Modeler:
             raise Exception("Bridge mode not loaded!")
         if mode[0] in ['t', 's'] and not self.tunnel:
             raise Exception("Tunnel mode not loaded!")
-                
-   
+
     def __load(self, filename, objectname=None, type=NULL, recenter=True):
         haslod = False
         if self.lod:
@@ -144,7 +145,7 @@ class Modeler:
                     return bpy.data.objects[objectname + '_lod']
                 objectname += '_lod'
             elif objectname in bpy.data.objects:
-                return bpy.data.objects[objectname]                       
+                return bpy.data.objects[objectname]
         path = os.path.join(self.config['PATH']['workdir'],
                             self.config['PATH']['units'],
                             filename)
@@ -156,7 +157,8 @@ class Modeler:
         obj.rotation_euler = Vector([0, 0, 0])
         if recenter:
             align(obj.data)
-        link_image(obj, self.textures['d'][type])
+        if self.textures:
+            link_image(obj, self.textures['d'][type])
         clean_uv(obj)
         #mirror_uv(obj)
         if objectname:

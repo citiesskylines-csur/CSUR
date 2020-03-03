@@ -35,7 +35,7 @@ def serialize(data, object_name, tablevel=0):
     return string
 
 def write(data, root_name, path):
-    with open(path, 'w+') as f:
+    with open(path, 'w+', -1, 'utf-8') as f:
         f.write(HEADER)
         f.write("<%s %s>\n" % (root_name, METADATA))
         for k, v in data.items():
