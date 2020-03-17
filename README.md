@@ -4,7 +4,8 @@ Cities: Skylines Urban Road (CSUR) is a fully modular road asset framework for C
 
 CSUR has been released onto [the Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=1959216109). The [CSUR Official Website](https://csur.fun) is also under construction. **Complete API documentation and model/texture specification for procedual generation will follow soon.** 
 
-![Ground road lineup](https://github.com/victoriacity/CSUR/blob/master/render.png)
+![Sample Interchange](https://github.com/victoriacity/CSUR/blob/master/csur-sample.png)
+*An example road interchange built by the developer in Cities:Skylines with CSUR. The CSUR code generates straight pieces of roads and imports them into Unity prefabs, and then the player uses the in-game UI to build road structures. The game handles the stretching and bending of meshes in each piece of road segment.*
 
 ## Motivation
 
