@@ -24,6 +24,7 @@ class Segment():
     SHOULDER = 8
     WEAVE = 9
     PARKING = 10
+    HALFSHOULDER = 11
     
     # width of each building unit
     widths = [0, 
@@ -36,7 +37,8 @@ class Segment():
               LANEWIDTH/2, 
               LANEWIDTH/2, 
               LANEWIDTH/2, 
-              2.75]
+              2.75,
+              LANEWIDTH/4]
 
     def get_lane_blocks(config):
         p1 = 0
@@ -118,6 +120,7 @@ class StandardWidth:
     SHOULDER = Segment.widths[Segment.SHOULDER]
     WEAVE = Segment.widths[Segment.WEAVE]
     PARKING = Segment.widths[Segment.PARKING]
+    HALFSHOULDER = Segment.widths[Segment.HALFSHOULDER]
 
 class Carriageway():
     width = Segment.widths[Segment.LANE]
@@ -316,7 +319,7 @@ class CSURFactory():
                 # ground road with parking space
                 'gp': [Segment.PARKING, Segment.CURB, Segment.SIDEWALK],
                 # expressway
-                'ex': [Segment.SHOULDER, Segment.SHOULDER, Segment.BARRIER],
+                'ex': [Segment.HALFSHOULDER] * 3 + [Segment.BARRIER],
                 # elevated 
                 'e': [Segment.BARRIER],
                 # bridge
@@ -328,7 +331,7 @@ class CSURFactory():
                }
     road_in = {'g': Segment.CURB, 'ge': Segment.CURB, 'e': Segment.BARRIER,
                'gp': Segment.CURB, 'gc': Segment.CURB, 'gw': Segment.CURB,
-                'b': Segment.BARRIER, 'ex': Segment.BARRIER,
+                'b': Segment.BARRIER, 'ex': [Segment.BARRIER, Segment.HALFSHOULDER],
                 's': Segment.BARRIER, 't': Segment.BARRIER}
     
     def get_units(mode, lane_left, *blocks, n_median=1, prepend_median=False, force_single_roadside=False):
@@ -342,8 +345,13 @@ class CSURFactory():
             units.append(Segment.MEDIAN)
             segment_left = 0
         elif force_single_roadside or lane_left > -Segment.widths[Segment.MEDIAN] * sum(blocks):
-            units.append(CSURFactory.road_in[mode])
-            segment_left = lane_left - Segment.widths[CSURFactory.road_in[mode]]
+            if type(CSURFactory.road_in[mode]) == list:
+                units.extend(CSURFactory.road_in[mode])
+                segment_left = lane_left - sum(Segment.widths[x] for x in CSURFactory.road_in[mode])
+            else:
+                units.append(CSURFactory.road_in[mode])
+                segment_left = lane_left - Segment.widths[CSURFactory.road_in[mode]]
+            
         else:
             units.extend(roadside[::-1])
             segment_left = lane_left - sum(Segment.widths[c] for c in roadside)   

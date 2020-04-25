@@ -386,9 +386,12 @@ class Modeler:
                     objs_created.append(place_unit(obj_temp, x1, x2, scale_mode=2))
                     obj_temp = make_mirror(obj_temp, copy=False)
                     objs_created.append(place_unit(obj_temp, x0, x1, scale_mode=2, copy=False))
-            elif units[p] == Segment.SHOULDER:
+            elif units[p] == Segment.SHOULDER or units[p] == Segment.HALFSHOULDER:
                 obj = self.objs['LANE']['lane_f']
-                x_left = [xs_start[p] + lb, xs_end[p] + lb]
+                if p >= 1 and units[p - 1] == Segment.BARRIER:
+                    x_left = [xs_start[p] - lb, xs_end[p] - lb]
+                else:
+                    x_left = [xs_start[p] + lb, xs_end[p] + lb]
                 if units[p + nblocks] != Segment.LANE:
                     x_right = [xs_start[p + nblocks] + lb, xs_end[p + nblocks] + lb]
                 else:
