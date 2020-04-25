@@ -110,9 +110,9 @@ def get_suffix(block, init_r):
     if block.get_offset() == 0:
         offset_code = 'C'
         return offset_code
-    #elif self.get_offset() == Carriageway.init_r:
-    #    offset_code = 'CR'
-    #    return offset_code
+    elif block.get_offset() == LANEWIDTH / 2 and block.nlanes > 1:
+        offset_code = 'S'
+        return offset_code
     #elif self.get_offset() == -Carriageway.init_r:
     #    offset_code = 'CL'
     #    return offset_code
@@ -125,7 +125,10 @@ def get_suffix(block, init_r):
             or block.get_offset() == 0:
         n_offset = ''
     else:
-        n_offset = offset_number(max(-block.x_left, block.x_right))
+        if block.x_right + block.x_left >= 0:
+            n_offset = offset_number(block.x_right)
+        else:
+            n_offset = offset_number(LANEWIDTH - block.x_left)
     return offset_code + n_offset
 
 

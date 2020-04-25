@@ -8,7 +8,7 @@ from itertools import product
 DEFAULT_MODE = 'g'
 
 N_MEDIAN = 2
-WIDE_SPLIT_MIN = 6
+WIDE_SPLIT_MIN = 8
 
 N_SHIFT_MAX = 1.5
 DN_TRANS = 1
@@ -24,7 +24,7 @@ def check_base_road(func):
             if arg.roadtype != 'b':
                 raise ValueError("Connection modules should be made from base roads")
         if seg1 == seg2:
-            raise ValueError("Two ends connected should be different: %s, %s" % (seg1.obj, seg2.obj))
+            raise ValueError("Two ends connected should be different: %s, %s" % (seg1, seg2))
         return func(seg1, seg2, *args, **kwargs)  
     return wrapper
 
@@ -59,7 +59,7 @@ def connect(start, end):
         # Look for shift
         if n0 == n1:
             if abs(x0_l - x1_l) > N_SHIFT_MAX * SW.LANE:
-                raise ValueError("Invalid shift increment! %d->%d" % (x0_l, x1_l))
+                raise ValueError("Invalid shift increment! %s=%s" % (start, end))
             return Asset(x0_l, n0, x1_l, n0)
         # Look for transition
         else:
@@ -106,6 +106,7 @@ class Builder:
     # boolean parameters
     USE_DN_RAMP = 0
     ASYM_SLIPLANE = 1
+    ADD_LEFT = 1
 
 
     def __init__(self, base_init, **kwargs):
@@ -121,8 +122,9 @@ class Builder:
         for i in range(1, self.MAX_UNDIVIDED + 1):
             self.base[i - 1].insert(0, BaseAsset(0, i))
         # add centered one-way nC modules with n<max_undivided
-        for i in range(1, 3):
-            self.base[i - 1].insert(0, BaseAsset(-SW.LANE * i / 2, i))
+        if self.ADD_LEFT:
+            for i in range(1, 3):
+                self.base[i - 1].insert(0, BaseAsset(-SW.LANE * i / 2, i))
         self.built = False
         self.comp = []
         self.triplex = []
@@ -130,6 +132,7 @@ class Builder:
         self.trans = []
         self.ramp = []
         self.twoway = []
+        print(self.base)
         
     def load_file(self, file):
         with open(file, 'r') as f:
@@ -170,7 +173,7 @@ class Builder:
         pairs = []
         for roads in self.base:
             for j in range(1, len(roads)):
-                if roads[j].x0() - roads[j - 1].x0() <= N_SHIFT_MAX * SW.LANE:
+                if abs(roads[j].x0() - roads[j - 1].x0()) <= N_SHIFT_MAX * SW.LANE:
                     pairs.append((roads[j - 1], roads[j]))
                     pairs.append((roads[j], roads[j - 1]))
         for p in pairs:
