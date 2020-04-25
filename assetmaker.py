@@ -556,9 +556,9 @@ class AssetMaker:
             nl = asset.nl_min()
         nmedian = min(asset.get_dim()) / SW.LANE - nl
         if mode[0] == 'g':
-            if mode[0] == 'ge':
+            if mode == 'ge':
                 coeff = nl + nmedian * 0.5  
-            elif mode[0] == 'gc':
+            elif mode == 'gc':
                 coeff = nl + nmedian * 0.5 + 0.5
             else:
                 coeff = nl + nmedian * 0.5 + 1
