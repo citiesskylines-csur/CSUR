@@ -62,7 +62,7 @@ def make_axis(canvas, asset, config, rspace=RSPACE, thumbmode=None, draw_referen
     else:
         units = [x or y for x, y in zip(seg.start, seg.end)]
         x_start, x_end = seg.x_start, seg.x_end
-        if seg.x_start[0] < 0:
+        if seg.x_start[0] < 0 or seg.x_end[0] < 0:
             wmax = max(blocks[0][-1].x_right - blocks[0][0].x_left, 
                         blocks[1][-1].x_right - blocks[1][0].x_left, 7.5*SW.LANE)     
             i0 = -int(wmax // (SW.LANE))
