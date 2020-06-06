@@ -1,0 +1,18 @@
+{
+    "m_trafficLights": "false",
+    "m_highwayRules": "false",
+    "m_accumulateSnow": "true",
+    "m_noiseAccumulation": "24",
+    "m_noiseRadius": "50",
+    "m_centerAreaWidth": "0",
+    "m_constructionCost": "24000",
+    "m_maintenanceCost": "1800",
+    "m_bridgePillarInfo": "",
+    "m_middlePillarInfo": null,
+    "m_elevationCost": "2000",
+    "m_bridgePillarOffset": "0",
+    "m_middlePillarOffset": "0",
+    "m_doubleLength": "false",
+    "m_canModify": "true",
+    "m_outsideConnection": "Road Connection"
+}

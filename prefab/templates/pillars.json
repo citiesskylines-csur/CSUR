@@ -1,0 +1,22 @@
+{
+    "oneway": [
+        "1532814575.Ama S-1_Data",
+        "1532814575.Ama S-2_Data",
+        "1532814575.Ama S-3_Data",
+        "1532814575.Ama G-3_Data",
+        "1532814575.Ama G-4_Data",
+        "1532814575.Ama G-5_Data",
+        "1532814575.Ama G-5_Data"
+    ],
+
+
+    "twoway": [
+        "1532814575.Ama S-2_Data",
+        "1532814575.Ama G-2_Data",
+        "1532814575.Ama G-6DR_Data",
+        "1532814575.Ama G-8DR_Data",
+        "1532814575.Ama G-8DR_Data",
+        "CSUR-F Main 12DR-P.Ama Pillar 12DR_Data",
+        "CSUR-F Main 12DR-P.Ama Pillar 12DR_Data"
+    ]
+}

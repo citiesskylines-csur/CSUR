@@ -1,0 +1,57 @@
+{
+    "pillar": {
+        "oneway": [
+            ["1532814575.Ama S-1_Data", 0.5],
+            ["1532814575.Ama S-2_Data", 1],
+            ["1532814575.Ama S-3_Data", 0],
+            ["1532814575.Ama G-3_Data", 0],
+            ["1532814575.Ama G-4_Data", 0],
+            ["1532814575.Ama G-5_Data", 0],
+            ["1532814575.Ama G-5_Data", 0]
+        ],
+    
+        "twoway": [
+            ["1532814575.Ama S-2_Data", 1],
+            ["1532814575.Ama G-2_Data", 0],
+            ["1532814575.Ama G-6DR_Data", 0],
+            ["1532814575.Ama G-8DR_Data", 0],
+            ["1532814575.Ama G-8DR_Data", 0],
+            ["CSUR-F Main 12DR-P.Ama Pillar 12DR_Data", 0],
+            ["CSUR-F Main 12DR-P.Ama Pillar 12DR_Data", 0]
+        ]
+    },
+    "light": {
+        "median_gnd": ["1826488681.Stainless Avenue Light_Data", 0],
+        "median_elv": ["1959183067.CSUR ElevatedLightDouble_Data", 0.2],
+        "side_gnd": ["1826488681.Stainless Street Light_Data", 0],
+        "side_elv": ["1959183067.CSUR ElevatedLight_Data", 0.2],
+        "side_tun": ["Wall Light White", 0]
+    },
+    "tree": {
+        "side": "943453922.Regular Tree Small _Data",
+        "median": null
+    },
+
+    "sign": {
+        "roadname": [
+            "1764369229.\u6307\u8def\u724c_Data"
+        ],
+        "intersection": [
+            null,
+            null,
+            null,
+            "1764372460.\u56db\u8f66\u9053\u5206\u6d41\u6307\u793a_Data",
+            "1764375035.\u4e94\u8f66\u9053\u5206\u6d41\u6307\u793a_Data",
+            "1764377010.\u516d\u8f66\u9053\u5206\u6d41\u6307\u793a_Data"
+        ],
+        "railwaycrossing": [
+            "Railway Crossing Short",
+            "Railway Crossing Medium",
+            "Railway Crossing Long",
+            "Railway Crossing Very Long",
+            "Railway Crossing Very Long",
+            "Railway Crossing Very Long"
+        ]
+    }
+
+}

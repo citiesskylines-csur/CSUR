@@ -1,0 +1,11 @@
+{
+    "m_trafficLights": "true",
+    "m_highwayRules": "false",
+    "m_accumulateSnow": "true",
+    "m_noiseAccumulation": "28",
+    "m_noiseRadius": "60",
+    "m_centerAreaWidth": "0",
+    "m_constructionCost": "14000",
+    "m_maintenanceCost": "900",
+    "m_outsideConnection": "Road Connection"
+}

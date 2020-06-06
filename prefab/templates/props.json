@@ -1,0 +1,457 @@
+{
+    "busstop":[
+        {
+            "m_flagsRequired": "Stop",
+            "m_flagsForbidden": "None",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "None",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "Default",
+            "m_prop": "1382903964.Bus shelter-HI_Data",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "-2.1",
+                    "0",
+                    "0"
+                ]
+            },
+            "m_angle": "-90",
+            "m_segmentOffset": "0",
+            "m_repeatDistance": "0",
+            "m_minLength": "0",
+            "m_cornerAngle": "0",
+            "m_probability": "100"
+        },
+        {
+            "m_flagsRequired": "Stop",
+            "m_flagsForbidden": "None",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "None",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "Default",
+            "m_prop": "1382903964.Bus shelter-HI_Data",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "-2.1",
+                    "0",
+                    "-8"
+                ]
+            },
+            "m_angle": "-90",
+            "m_segmentOffset": "0",
+            "m_repeatDistance": "0",
+            "m_minLength": "50",
+            "m_cornerAngle": "0",
+            "m_probability": "100"
+        },
+        {
+            "m_flagsRequired": "Stop",
+            "m_flagsForbidden": "None",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "None",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "Default",
+            "m_prop": "1382903964.Bus shelter-HI_Data",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "-2.1",
+                    "0",
+                    "8"
+                ]
+            },
+            "m_angle": "-90",
+            "m_segmentOffset": "0",
+            "m_repeatDistance": "0",
+            "m_minLength": "50",
+            "m_cornerAngle": "0",
+            "m_probability": "100"
+        }
+    ],
+    "light_median": [
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "Stop",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "None",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "Default",
+            "m_prop": "CSUR@LIGHT:MEDIAN",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "0",
+                    "0",
+                    "0"
+                ]
+            },
+            "m_angle": "0",
+            "m_segmentOffset": "0",
+            "m_repeatDistance": "30",
+            "m_minLength": "0",
+            "m_cornerAngle": "0",
+            "m_probability": "100"
+        }
+    ],
+    "light_side": [
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "Stop",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "None",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "Default",
+            "m_prop": "CSUR@LIGHT:SIDE",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "0",
+                    "0",
+                    "0"
+                ]
+            },
+            "m_angle": "0",
+            "m_segmentOffset": "0",
+            "m_repeatDistance": "30",
+            "m_minLength": "0",
+            "m_cornerAngle": "0",
+            "m_probability": "100"
+        }
+    ],
+    "light_tunnel": [
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "None",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "None",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "Default",
+            "m_prop": "CSUR@LIGHT:SIDE",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "-0.8125",
+                    "5.5",
+                    "0"
+                ]
+            },
+            "m_angle": "90",
+            "m_segmentOffset": "0",
+            "m_repeatDistance": "8",
+            "m_minLength": "0",
+            "m_cornerAngle": "0",
+            "m_probability": "100"
+        }
+    ],
+    "random_street_prop": [
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "Stop",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "None",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "Default",
+            "m_prop": "Random Street Prop",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "0",
+                    "0",
+                    "-3"
+                ]
+            },
+            "m_angle": "270",
+            "m_segmentOffset": "0",
+            "m_repeatDistance": "25",
+            "m_minLength": "10",
+            "m_cornerAngle": "0",
+            "m_probability": "25"
+        }
+    ],
+    "tree_side": [
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "Stop",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "None",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "Default",
+            "m_prop": null,
+            "m_tree": "CSUR@TREE:SIDE",
+            "m_position": {
+                "float": [
+                    "0",
+                    "0",
+                    "0"
+                ]
+            },
+            "m_angle": "180",
+            "m_segmentOffset": "0",
+            "m_repeatDistance": "8",
+            "m_minLength": "0",
+            "m_cornerAngle": "0",
+            "m_probability": "100"
+        }
+    ],
+    "intersection_median": [       
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "JoinedJunction",
+            "m_startFlagsRequired": "TrafficLights",
+            "m_startFlagsForbidden": "LevelCrossing",
+            "m_endFlagsRequired": "None",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "Default",
+            "m_prop": "1959183067.CSUR MidSign_Data",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "0",
+                    "0",
+                    "0"
+                ]
+            },
+            "m_angle": "90",
+            "m_segmentOffset": "-1",
+            "m_repeatDistance": "0",
+            "m_minLength": "0",
+            "m_cornerAngle": "0.5",
+            "m_probability": "100"
+        }
+    ],
+    "intersection_widemedian": [
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "JoinedJunction",
+            "m_startFlagsRequired": "TrafficLights",
+            "m_startFlagsForbidden": "LevelCrossing",
+            "m_endFlagsRequired": "None",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "StartState",
+            "m_prop": "Traffic Light 01 Mirror",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "0",
+                    "0",
+                    "0"
+                ]
+            },
+            "m_angle": "90",
+            "m_segmentOffset": "-1",
+            "m_repeatDistance": "0",
+            "m_minLength": "0",
+            "m_cornerAngle": "0.5",
+            "m_probability": "100"
+        }
+    ],
+    "traffic_camera": [
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "JoinedJunction",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "TrafficLights",
+            "m_endFlagsForbidden": "LevelCrossing",
+            "m_colorMode": "Default",
+            "m_prop": "1959183067.CSUR CCTV_Data",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "0",
+                    "0",
+                    "-4"
+                ]
+            },
+            "m_angle": "90",
+            "m_segmentOffset": "1",
+            "m_repeatDistance": "0",
+            "m_minLength": "8",
+            "m_cornerAngle": "0.5",
+            "m_probability": "100"
+        }
+    ],
+    "intersection_side": [
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "None",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "TrafficLights",
+            "m_endFlagsForbidden": "End",
+            "m_colorMode": "Default",
+            "m_prop": "CSUR@SIGN:INTERSECTION",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "-2.9375",
+                    "0",
+                    "0"
+                ]
+            },
+            "m_angle": "90",
+            "m_segmentOffset": "-0.8",
+            "m_repeatDistance": "0",
+            "m_minLength": "24",
+            "m_cornerAngle": "0",
+            "m_probability": "100"
+        },
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "None",
+            "m_startFlagsRequired": "TrafficLights",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "None",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "Default",
+            "m_prop": "CSUR@SIGN:ROADNAME",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "0 ",
+                    "0",
+                    "10"
+                ]
+            },
+            "m_angle": "0",
+            "m_segmentOffset": "-0.8",
+            "m_repeatDistance": "0",
+            "m_minLength": "24",
+            "m_cornerAngle": "0",
+            "m_probability": "100"
+        },
+        {
+            "m_flagsRequired": "YieldEnd",
+            "m_flagsForbidden": "None",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "Junction",
+            "m_endFlagsForbidden": "TrafficLights OneWayIn",
+            "m_colorMode": "Default",
+            "m_prop": "Stop Sign",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "0",
+                    "0",
+                    "0"
+                ]
+            },
+            "m_angle": "0",
+            "m_segmentOffset": "1",
+            "m_repeatDistance": "0",
+            "m_minLength": "0",
+            "m_cornerAngle": "0",
+            "m_probability": "100"
+        },
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "JoinedJunction",
+            "m_startFlagsRequired": "TrafficLights",
+            "m_startFlagsForbidden": "LevelCrossing",
+            "m_endFlagsRequired": "None",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "StartState",
+            "m_prop": "Traffic Light 02",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "0",
+                    "0",
+                    "0"
+                ]
+            },
+            "m_angle": "90",
+            "m_segmentOffset": "-1",
+            "m_repeatDistance": "0",
+            "m_minLength": "0",
+            "m_cornerAngle": "0.5",
+            "m_probability": "100"
+        },
+        {
+            "m_flagsRequired": "EndOneWayLeft",
+            "m_flagsForbidden": "EndOneWayRight",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "Junction",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "Default",
+            "m_prop": "No Left Turn Sign",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "0",
+                    "0",
+                    "-5"
+                ]
+            },
+            "m_angle": "0",
+            "m_segmentOffset": "1",
+            "m_repeatDistance": "0",
+            "m_minLength": "10",
+            "m_cornerAngle": "0",
+            "m_probability": "100"
+        },
+        {
+            "m_flagsRequired": "EndOneWayRight",
+            "m_flagsForbidden": "EndOneWayLeft",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "Junction",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "Default",
+            "m_prop": "No Right Turn Sign",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "0",
+                    "0",
+                    "-5"
+                ]
+            },
+            "m_angle": "0",
+            "m_segmentOffset": "1",
+            "m_repeatDistance": "0",
+            "m_minLength": "10",
+            "m_cornerAngle": "0",
+            "m_probability": "100"
+        }
+    ],
+
+    "railway_crossing": [
+        {
+            "m_flagsRequired": "None",
+            "m_flagsForbidden": "None",
+            "m_startFlagsRequired": "None",
+            "m_startFlagsForbidden": "None",
+            "m_endFlagsRequired": "LevelCrossing",
+            "m_endFlagsForbidden": "None",
+            "m_colorMode": "EndState",
+            "m_prop": "CSUR@SIGN:RAILWAYCROSSING",
+            "m_tree": null,
+            "m_position": {
+                "float": [
+                    "0",
+                    "0",
+                    "0"
+                ]
+            },
+            "m_angle": "0",
+            "m_segmentOffset": "1",
+            "m_repeatDistance": "0",
+            "m_minLength": "0",
+            "m_cornerAngle": "1",
+            "m_probability": "100"
+        }
+    ]
+}
