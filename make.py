@@ -11,4 +11,8 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output', default='output', 
         help='output file path')
     args = parser.parse_args(custom_args)
-    make(os.getcwd(), args.input, reverse=args.reverse, output_path=args.output)
+    assetlist = args.input
+    if len(args.input) == 1 and os.path.isfile(args.input[0]):
+        with open(args.input[0]) as f:
+            assetlist = [x.strip() for x in f.readlines()]
+    make(os.getcwd(), assetlist, reverse=args.reverse, output_path=args.output)
