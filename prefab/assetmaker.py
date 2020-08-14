@@ -263,7 +263,6 @@ class AssetMaker:
                 name = '%s_restorenode' % self.assetdata['name']
             elif asym_mode == 'expand':
                 dcnode, side, target_median = self.modeler.make_asym_invert_node(seg, halved=True) 
-                #print(target_median)
                 name = '%s_expandnode' % self.assetdata['name']
             else:
                 dcnode, side = self.modeler.make_dc_node(seg, target_median=medians)
@@ -908,7 +907,7 @@ class AssetMaker:
         return self.assetdata
 
     def output_assets(self):
-        with open(os.path.join(self.output_path, 'imports.txt'), 'w+') as f:
+        with open(os.path.join(self.output_path, 'imports.txt'), 'a') as f:
             f.writelines(["%s\n" % x for x in self.assets_made])
 
 def make(workdir, names_raw, reverse=False, interpolation=None, output_path='output'):
