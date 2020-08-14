@@ -73,13 +73,15 @@ def twoway_reduced_name(block_l, block_r):
         l, r = block_l_copy.pop(0), block_r_copy.pop(0)
         if l.x_left + r.x_left == 0:
             #centered = Carriageway(l.nlanes + r.nlanes, -l.x_right)
+            suffix = None
             if r.x_left == 0 and r.nlanes - l.nlanes == 1:
                 suffix = 'S'
-            else:
+            elif r.nlanes == l.nlanes:
                 #suffix = centered.suffix()
                 suffix = 'C'
-            reduced.append("%dD%s" % (l.nlanes + r.nlanes, suffix))
-            i += 1
+            if suffix:
+                reduced.append("%dD%s" % (l.nlanes + r.nlanes, suffix))
+                i += 1
         elif str(l) == str(r):       
             reduced.append("%dD%s" % (2 * l.nlanes, l.suffix()))
             i += 1
