@@ -423,7 +423,7 @@ class Builder:
         pairs = []
         # find shift segments to add
         for road in self.base[new_asset.nl() - 1]:
-            if abs(road.x0() - new_asset.x0()) <= N_SHIFT_MAX * SW.LANE:
+            if 0 < abs(road.x0() - new_asset.x0()) <= N_SHIFT_MAX * SW.LANE:
                 pairs.append((road, new_asset))
                 pairs.append((new_asset, road))
     
