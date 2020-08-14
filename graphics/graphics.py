@@ -214,17 +214,23 @@ class Canvas:
         self.ctx.restore()
 
 
-    def add_text(self, text, position, size, color, fontface=DEFAULT_FONT, valign=Anchor.BOTTOM, halign=Anchor.LEFT):
+    def add_text(self, text, position, size, color, 
+            fontface=DEFAULT_FONT, valign=Anchor.BOTTOM, halign=Anchor.LEFT,
+            maxwidth=0.5):
         typeface, slant, weight = fontface
         self.ctx.set_font_size(size)
         self.ctx.select_font_face(typeface, slant, weight)
         self.ctx.set_source_rgb(color.r, color.g, color.b)
         x, y, width, height, dx, dy = self.ctx.text_extents(text)
+        xscale = min(maxwidth / width, 1)
+        width *= xscale
         # text is anchored at bottom by default
         left, top = Anchor.get_topleft((position[0], position[1] + height), (width, height), (valign, halign))
         self.ctx.move_to(left, top)
+        self.ctx.scale(xscale, 1)
         self.ctx.show_text(text)
         self.ctx.stroke()
+        self.ctx.scale(1 / xscale, 1)
         return width, height
 
 
