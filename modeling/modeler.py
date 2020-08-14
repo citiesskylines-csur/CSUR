@@ -34,7 +34,7 @@ class Modeler:
         self.beam_margin = float(self.config['PARAM']['beam_margin'])
         self.median_margin = float(self.config['PARAM']['median_margin'])
         # load textures
-        self.texpath = os.path.abspath(os.path.join(self.config['PATH']['tex']))
+        self.texpath = os.path.join(os.path.dirname(os.path.abspath(config_file)), self.config['PATH']['tex'])
         self.bridge = bridge
         self.tunnel = tunnel
         self.lod = lod
@@ -999,6 +999,7 @@ class Modeler:
             sb_r = Modeler.make_soundbarrier(self, seg.right)
             sb_l.rotation_euler[2] = 3.1415926536
             sb = make_mesh([sb_l, sb_r])
+            transform_apply(sb, rotation=True)
         else:
             units = [x or y for x, y in zip(seg.start, seg.end)]
             p = 0
@@ -1337,6 +1338,8 @@ class Modeler:
         if lanes:
             lanes = make_mesh(lanes)
             reset_origin(lanes)
+        else:
+            lanes = None
         reset_origin(median)
         sidemedian = None
         #print(units)
@@ -1365,7 +1368,7 @@ class Modeler:
             median_f, lanes_f, sidemedian_f = self.__get_dc_components(seg.right, divide_line=True, unprotect_bikelane=unprotect_bikelane)
             median_r, lanes_r, sidemedian_r = self.__get_dc_components(seg.left, unprotect_bikelane=unprotect_bikelane)
             for x in [median_r, lanes_r, sidemedian_r]:
-                if x is not None:
+                if x:
                     x.rotation_euler[2] = 3.141592654
             median = make_mesh([median_f, median_r])
             lanes = make_mesh([lanes_f, lanes_r])
@@ -1479,16 +1482,21 @@ class Modeler:
             # for divided with a wide median, we can directly create a transition segment and make it a node
             blocks_f, blocks_r = seg.right.decompose(), seg.left.decompose()
             if halved:
-                if abs(seg.left.n_lanes()[0] - seg.right.n_lanes()[0]) % 2 == 1:
-                    dcnode_rev = CSURFactory(mode=mode, roadtype='s').get([0, blocks_r[0].x_left], blocks_r[0].nlanes)
+                if seg.undivided:
+                    dcnode_rev = CSURFactory(mode=mode, roadtype='s').get([blocks_r[0].x_left, 0], blocks_r[0].nlanes)
+                    dcnode_fwd = CSURFactory(mode=mode, roadtype='t').get(
+                                        [0, blocks_f[0].x_left], 
+                                        [blocks_r[0].nlanes, blocks_f[0].nlanes],
+                                    left=(blocks_f[0].x_left!=blocks_r[0].x_left))
                 else:
-                    dcnode_rev = CSURFactory(mode=mode, roadtype='b').get(blocks_f[0].x_left, blocks_f[0].nlanes)
-                dcnode_fwd = CSURFactory(mode=mode, roadtype='t').get(
-                                        [blocks_f[0].x_left, 0], 
-                                        [blocks_f[0].nlanes, blocks_r[0].nlanes],
+                    dcnode_fwd = CSURFactory(mode=mode, roadtype='b').get(blocks_f[0].x_left, blocks_f[0].nlanes)
+                    dcnode_rev = CSURFactory(mode=mode, roadtype='t').get(
+                                        [blocks_r[0].x_left, blocks_f[0].x_left], 
+                                        [blocks_r[0].nlanes, blocks_f[0].nlanes],
                                     left=(blocks_f[0].x_left!=blocks_r[0].x_left))
                 # print(dcnode_rev, dcnode_fwd)
                 asym_forward_node, sidemedian = Modeler.convert_to_dcnode(self, csur.TwoWay(dcnode_rev, dcnode_fwd))
+                # asym_forward_node = make_mirror(asym_forward_node, copy=False, realign=False)
             else:
                 dcnode_fwd = CSURFactory(mode=mode, roadtype='t').get(
                                         [blocks_r[0].x_left, blocks_f[0].x_left], 
@@ -1497,9 +1505,10 @@ class Modeler:
                 dcnode_rev = dcnode_fwd
                 asym_forward_node, struc = Modeler.make(self, csur.TwoWay(dcnode_rev, dcnode_fwd))
                 delete(struc)
-            asym_forward_node.rotation_euler[2] = 3.1415926536
-            if sidemedian:
-                sidemedian.rotation_euler[2] = 3.1415926536
+                asym_forward_node.rotation_euler[2] = 3.1415926536
+            # NOTE: The game will invert the side median mesh for unknown reason
+            # if sidemedian:
+            #     sidemedian.rotation_euler[2] = 3.1415926536
             transform_apply(asym_forward_node, rotation=True)
             new_median = [blocks_f[0].x_left + LANEWIDTH/2] * 2
             # print(new_median)
@@ -1537,7 +1546,7 @@ class Modeler:
             reset_origin(asym_forward_node)
         asym_forward_node.name = str(seg) + 'invert_node_forward'
         if halved:
-            mediancode = ''.join(str(int(x // (LANEWIDTH / 2) - 1)) for x in new_median)
+            mediancode = ''.join(str(int(max(0, x // (LANEWIDTH / 2) - 1))) for x in new_median)
             asym_forward_node.name = str(seg) + '_expand_node'
             return asym_forward_node, sidemedian, mediancode
         else:
