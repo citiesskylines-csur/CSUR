@@ -1483,11 +1483,23 @@ class Modeler:
             blocks_f, blocks_r = seg.right.decompose(), seg.left.decompose()
             if halved:
                 if seg.undivided:
-                    dcnode_rev = CSURFactory(mode=mode, roadtype='s').get([blocks_r[0].x_left, 0], blocks_r[0].nlanes)
-                    dcnode_fwd = CSURFactory(mode=mode, roadtype='t').get(
-                                        [0, blocks_f[0].x_left], 
-                                        [blocks_r[0].nlanes, blocks_f[0].nlanes],
-                                    left=(blocks_f[0].x_left!=blocks_r[0].x_left))
+                    if abs(seg.left.n_lanes()[0] - seg.right.n_lanes()[0]) % 2 == 1: # nDC=(n+1)DC
+                        dcnode_rev = CSURFactory(mode=mode, roadtype='s').get([blocks_r[0].x_left, 0], blocks_r[0].nlanes)
+                        dcnode_fwd = CSURFactory(mode=mode, roadtype='t').get(
+                                            [0, blocks_f[0].x_left], 
+                                            [blocks_r[0].nlanes, blocks_f[0].nlanes],
+                                        left=(blocks_f[0].x_left!=blocks_r[0].x_left))
+                    else:
+                        nlane_avg = int((blocks_r[0].nlanes + blocks_f[0].nlanes) / 2)
+                        center = (blocks_r[0].x_left + blocks_f[0].x_left) / 2
+                        dcnode_fwd = CSURFactory(mode=mode, roadtype='t').get(
+                                        [center, blocks_f[0].x_left], 
+                                        [nlane_avg, blocks_f[0].nlanes],
+                                    left=True)
+                        dcnode_rev = CSURFactory(mode=mode, roadtype='t').get(
+                                        [blocks_r[0].x_left, center], 
+                                        [blocks_r[0].nlanes, nlane_avg],
+                                    left=True)
                 else:
                     dcnode_fwd = CSURFactory(mode=mode, roadtype='b').get(blocks_f[0].x_left, blocks_f[0].nlanes)
                     dcnode_rev = CSURFactory(mode=mode, roadtype='t').get(
