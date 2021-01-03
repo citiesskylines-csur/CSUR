@@ -138,13 +138,13 @@ class Segment():
     # width of each building unit
     widths = [0, 
               LANEWIDTH, 
-              LANEWIDTH/2, 
+              LANEWIDTH/4, # expressway has a narrower median due to inner road shoulder! 
               2.75, 
               0.5, 
               3.75, 
               LANEWIDTH/4, 
               LANEWIDTH/2, 
-              LANEWIDTH/2, 
+              3*LANEWIDTH/4, 
               LANEWIDTH/2, 
               2.75,
               LANEWIDTH/4]
@@ -286,9 +286,11 @@ class TwoWay(Segment):
         fill = Segment.CHANNEL if undivided else Segment.MEDIAN
         if isinstance(seg, BaseRoad):
             p = seg.units.index(Segment.LANE)
+            # keep inner shoulder if exists
+            if seg.units[p - 1] == Segment.HALFSHOULDER:
+                p -= 1
             units = seg.units.copy()[p:]
             n = int((seg.x[p] - center[0]) // Segment.widths[Segment.MEDIAN])
-            #print(seg.x[p], center)
             units = [fill] * n + units
             return BaseRoad(units, center[0])
          
@@ -299,7 +301,12 @@ class TwoWay(Segment):
             while start[p1] and start[p1] != Segment.LANE:
                 p1 += 1
             while end[p2] and end[p2] != Segment.LANE:
-                p2 += 1   
+                p2 += 1
+            # keep inner shoulder if exists
+            if start[p1 - 1] == Segment.HALFSHOULDER:
+                p1 -= 1
+            if end[p2 - 1] == Segment.HALFSHOULDER:
+                p2 -= 1
             start = start[p1:]
             end = end[p2:]
             n_start = int((seg.x_start[p1] - center[0]) // Segment.widths[Segment.MEDIAN])
@@ -396,17 +403,21 @@ class CSURFactory():
     '''
     roadside = {
                 # standard ground road
-                'g': [Segment.MEDIAN, Segment.BIKE, Segment.CURB, Segment.SIDEWALK],
+                'g': [Segment.BARRIER],
                 # standard road with weaving sections
                 'gw': [Segment.MEDIAN, Segment.BIKE, Segment.CURB, Segment.SIDEWALK],
                 # ground express lanes
-                'ge': [Segment.CURB],
+                'ge': [Segment.BARRIER],
                 # compact ground w/o bike lanes:
                 'gc': [Segment.CURB, Segment.SIDEWALK],
                 # ground road with parking space
                 'gp': [Segment.PARKING, Segment.CURB, Segment.SIDEWALK],
-                # expressway
-                'ex': [Segment.HALFSHOULDER] * 3 + [Segment.BARRIER],
+                # ground expressway
+                'gx': [Segment.SHOULDER, Segment.BARRIER],
+                # elevated expressway
+                'ex': [Segment.SHOULDER, Segment.BARRIER],
+                # slope expressway
+                'sx': [Segment.SHOULDER, Segment.BARRIER],
                 # elevated 
                 'e': [Segment.BARRIER],
                 # bridge
@@ -416,9 +427,11 @@ class CSURFactory():
                 # tunnel
                 't': [Segment.BARRIER],  
                }
-    road_in = {'g': Segment.CURB, 'ge': Segment.CURB, 'e': Segment.BARRIER,
+    road_in = {'g': Segment.BARRIER, 'ge': Segment.BARRIER, 'e': Segment.BARRIER,
                'gp': Segment.CURB, 'gc': Segment.CURB, 'gw': Segment.CURB,
-                'b': Segment.BARRIER, 'ex': [Segment.BARRIER, Segment.HALFSHOULDER],
+                'b': Segment.BARRIER, 'gx': [Segment.BARRIER, Segment.HALFSHOULDER],
+                'ex': [Segment.BARRIER, Segment.HALFSHOULDER],
+                'sx': Segment.SHOULDER, # a full shoulder on the left side is needed for one-way tunnel entrances
                 's': Segment.BARRIER, 't': Segment.BARRIER}
     
     def get_units(mode, lane_left, *blocks, n_median=1, prepend_median=False, force_single_roadside=False):
