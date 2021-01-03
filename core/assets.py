@@ -93,7 +93,7 @@ class Asset():
         return self.roadtype == 'b' and self.center() == [0,0]
 
     def reverse(self):
-        return Asset(self.xleft[1], self.nlanes[1], self.xleft[0], self.nlanes[0], self.medians)
+        return Asset(self.xleft[1], self.nlanes[1], self.xleft[0], self.nlanes[0], medians=self.medians[::-1])
 
     def always_undivided(self):
         return self.xleft[0] == 0 and self.xleft[1] == 0
@@ -228,7 +228,7 @@ class TwoWayAsset(Asset):
 
     def get_model(self, mode='g'):
         # disable append median for symmetric wide medians in elevated, tunnel and slope modes
-        append_median = False if mode[0] != 'g' and self.is_symmetric() and self.n_median_min() > 2 else self.append_median
+        append_median = False if mode[0] != 'g' and self.is_symmetric() and self.n_median_min() > 4 else self.append_median
         if mode[-1] == 'u':
             seg = TwoWay(self.left.get_model(mode[0]), self.right.get_model(mode[0]), append_median)
             for u in [seg.left.start, seg.right.start, seg.left.end, seg.right.end]:
