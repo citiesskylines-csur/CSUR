@@ -1,6 +1,6 @@
 import bpy
 from mathutils import Vector
-from math import pi, cos, sin
+from math import pi, cos, sin, exp, sqrt
 
 '''
 Decoreator to deselect all objects before function call.
@@ -402,6 +402,65 @@ def place_unit(obj, xs_left, xs_right, copy=True, preserve_uv=0, preserve_obj=Fa
                 dx = interpolate(xs_right[0], xs_right[1], alpha, interpolation) - dims[0]
                 v.co[0] += dx
     return obj
+
+'''
+Estimates the probability density of vertices at x-coordinate X
+on the mesh MESH using a Gaussian kernel.
+'''
+def sample(x, mesh, h=1):
+    weight = 0.0
+    nvert = 0
+    for v in mesh.vertices:
+        weight += exp(-((x - v.co[0]) / h) ** 2 / 2)
+        nvert += 1
+    return weight / nvert / sqrt(2 * pi)
+
+'''
+Adaptively scales a mesh MESH along the x-axis by offset DELTAX through 
+weighting the vertex displacements by the x-axis probability density
+sampled from the reference mesh REF. Parts of the mesh with absolute x coordinate
+smaller than XMIN or larger than XMAX will not be scaled.
+if MIRRORED, then +X and -X parts of the model are assumed symmetric and will
+be processed separately.
+'''
+def rescale(mesh, ref, deltax, xmin=0, xmax=1 / EPS, mirrored=False):
+    # process +X and -X separately
+    flags = [True, False] if mirrored else [True]
+    for positive in flags:
+        xcoords = set()
+        # find x-corodinates and sort
+        for v in mesh.vertices:
+            if mirrored:
+                if positive and v.co[0] > 0:
+                    xcoords.add(v.co[0])
+                elif not positive and v.co[0] < 0:
+                    xcoords.add(-v.co[0])
+            else:
+                xcoords.add(v.co[0])
+        if len(xcoords) > 0:
+            xcoords = sorted(xcoords)
+            # calculate deltas between x-coordinates and apply original scale
+            delta = [(xcoords[i + 1] - xcoords[i]) for i in range(len(xcoords) - 1)]
+            # calculate weights
+            weights = [1 / sample(x, ref) if xmin < x < xmax else 0 for x in xcoords]
+            delta_extra = []
+            for i in range(len(delta)): # reweight displacements
+                delta_extra.append(delta[i] * (weights[i] + weights[i + 1]) / 2)
+            norm = deltax / sum(delta_extra)
+            newpos = [xcoords[0]]
+            for i in range(len(xcoords) - 1):
+                newpos.append(newpos[-1] + delta[i] + delta_extra[i] * norm) # normalize delta_extra
+            # position mapping
+            posmap = {x: xnew for x, xnew in zip(xcoords, newpos)}    
+            for v in mesh.vertices:
+                if mirrored:
+                    if positive and v.co[0] > 0:
+                        v.co[0] = posmap[v.co[0]]
+                    elif not positive and v.co[0] < 0:
+                        v.co[0] = -posmap[-v.co[0]]
+                else:
+                    v.co[0] = posmap[v.co[0]]
+
 
 '''
 place the object as a slope along the Y axis 
