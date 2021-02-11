@@ -281,11 +281,15 @@ class AssetMaker:
         seg = asset.get_model('g')
         dlanes = (target_median - int(asset.right.get_all_blocks()[0][0].x_right / SW.MEDIAN)) // 2
         dcnode, side = self.modeler.make_local_express_dc_node(seg, dlanes)
-        le_connectgroup = self.connectgroup_side[target_median]
-        name = '%s_dcnode_le%s' % (self.assetdata['name'], target_median)
-        self.__add_node(name, dcnode, preset='direct', connectgroup=le_connectgroup, texmode='lane')
-        if side:
-            self.__add_node(name + '_side', side, preset='direct_nointersection', connectgroup=le_connectgroup, texmode='lane')
+        '''
+        Only adds the direct connect node if there is a connect group available for the median position
+        '''
+        if target_median in self.connectgroup_side:
+            le_connectgroup = self.connectgroup_side[target_median]
+            name = '%s_dcnode_le%s' % (self.assetdata['name'], target_median)
+            self.__add_node(name, dcnode, preset='direct', connectgroup=le_connectgroup, texmode='lane')
+            if side:
+                self.__add_node(name + '_side', side, preset='direct_nointersection', connectgroup=le_connectgroup, texmode='lane')
         
     def __create_brtnode(self, asset):
         if not asset.is_twoway():
@@ -577,7 +581,11 @@ class AssetMaker:
                 info["m_connectGroup"] = self.get_connectgroup(self.__get_mediancode(asset))
                 if len(asset.right.get_all_blocks()[0]) == 2:
                     my_sidemedian = int(asset.right.get_all_blocks()[0][0].x_right / SW.MEDIAN)
-                    info["m_connectGroup"] += ' ' + self.connectgroup_side[my_sidemedian]
+                    '''
+                    Only adds the direct connect node if there is a connect group available for the median position
+                    '''
+                    if my_sidemedian in self.connectgroup_side:
+                        info["m_connectGroup"] += ' ' + self.connectgroup_side[my_sidemedian]
             else:
                 info["m_connectGroup"] = "None"
             halfwidth = min([max(seg.right.x_start), max(seg.left.x_start)])
