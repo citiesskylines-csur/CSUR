@@ -68,8 +68,12 @@ class Asset():
     def nl_max(self):
         return max(self.ntot_start(), self.ntot_end())
 
-    def center(self):
-        return [(b[-1].x_right + b[0].x_left) / 2 for b in self._blocks]
+    def center(self, expressway=True):
+        if expressway:
+            seg = self.get_model('gx')
+            return [(seg.x_start[0] + seg.x_start[-1]) / 2, (seg.x_end[0] + seg.x_end[-1]) / 2]
+        else:
+            return [(b[-1].x_right + b[0].x_left) / 2 for b in self._blocks]
 
     def is_undivided(self):
         return self.xleft[0] == 0 or self.xleft[1] == 0
