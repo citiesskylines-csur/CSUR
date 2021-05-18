@@ -433,8 +433,8 @@ class Modeler:
         nl_base = self.tunnel_lanes_base
         wall = self.tunnel_wall
         # make the tunnel body
-        i_first_lane = units.index(Segment.LANE)
-        i_last_lane = len(units) - units[::-1].index(Segment.LANE)
+        i_first_lane = units.index(Segment.HALFSHOULDER)
+        i_last_lane = len(units) - units[::-1].index(Segment.SHOULDER)
         x0 = [xs_start[i_first_lane] - wall, xs_end[i_first_lane] - wall]
         x1 = [xs_start[i_last_lane] + wall, xs_end[i_last_lane] + wall]
         width = min(x1[0] - x0[0] - 2 * wall, x1[1] - x0[1] - 2 * wall)
@@ -476,8 +476,8 @@ class Modeler:
         wall = self.tunnel_wall
         wall_s = self.slope_wall
         # make the tunnel body
-        i_first_lane = units.index(Segment.LANE)
-        i_last_lane = len(units) - units[::-1].index(Segment.LANE)
+        i_first_lane = units.index(Segment.HALFSHOULDER)
+        i_last_lane = len(units) - units[::-1].index(Segment.SHOULDER)
         x0 = [xs_start[i_first_lane] - wall, xs_end[i_first_lane] - wall]
         x1 = [xs_start[i_last_lane] + wall, xs_end[i_last_lane] + wall]
         width = min(x1[0] - x0[0] - 2 * wall, x1[1] - x0[1] - 2 * wall)
@@ -961,15 +961,15 @@ class Modeler:
                 x1 = [xs_start[-2] + lb, xs_end[-2] + lb]
             else:
                 x1 = [xs_start[-2], xs_end[-2]]
-            beam = place_unit(self.objs['ELEVATED']['beam'], x0, x1, scale_mode=0)
+            beam = place_unit(self.objs['NODE']['beam'], x0, x1, scale_mode=0)
             sidewalk.append(beam)
         elif mode[0] == 't':
             lb = self.lane_border
             nl_base = self.tunnel_lanes_base
             wall = self.tunnel_wall
             # make the tunnel body
-            i_first_lane = units.index(Segment.LANE)
-            i_last_lane = len(units) - units[::-1].index(Segment.LANE)
+            i_first_lane = units.index(Segment.HALFSHOULDER)
+            i_last_lane = len(units) - units[::-1].index(Segment.SHOULDER)
             x0 = [xs_start[i_first_lane] - wall, xs_end[i_first_lane] - wall]
             x1 = [xs_start[i_last_lane] + wall, xs_end[i_last_lane] + wall]
             width = min(x1[0] - x0[0] - 2 * wall, x1[1] - x0[1] - 2 * wall)
@@ -977,13 +977,17 @@ class Modeler:
             tunnel = duplicate(self.objs['TUNNEL']['body'])
             rescale(tunnel.data, self.objs['TUNNEL']['body'].data, deltax,
                 xmin=wall, xmax=wall + nl_base * LANEWIDTH)
+            # needs to move the mesh to the correct position after scaling
+            tunnel.location[0] = x0[0]
+            transform_apply(tunnel)
+            sidewalk.append(tunnel)
         p = 0
         while p < len(units):
             nblocks = 1
             while p + nblocks < len(units) and (units[p + nblocks] == units[p] \
                     or units[p + nblocks] == Segment.EMPTY):
                 nblocks += 1
-            if units[p] == Segment.BARRIER and (p == 0 or p == len(units) - 1):
+            if units[p] == Segment.BARRIER and (p == 0 or p == len(units) - 1) and mode[0] in 'ge':
                 obj = self.objs['GROUND' if mode[0] == 'g' else 'ELEVATED']['barrier']
                 if p == 0:
                     obj = duplicate(obj)
@@ -996,24 +1000,21 @@ class Modeler:
                             [xs_start[-2] + lb, xs_end[-2] + lb], 
                             [xs_start[-1], xs_end[-1]], copy=False))    
             p += nblocks
-        # i_curb is the LAST index of CURB in units
-        i_curb = len(units) - units[::-1].index(Segment.BARRIER) - 1
-        asphalt_hw = xs_start[i_curb] + lb
-        asphalt = place_unit(self.objs['NODE']['asphalt'], [0, 0], [4 * LANEWIDTH, 4 * LANEWIDTH], scale_mode=1)
-        asphalt = place_unit(asphalt, 
-                    [0, 0], 
-                    [asphalt_hw, asphalt_hw], scale_mode=0, preserve_uv=(0 if asphalt_hw >= 4 * LANEWIDTH else -1),
-                    copy=False)
-        # needs to consider one-way roads with nodes, in this case
-        # the road will be always symmetric so the asphalt is just mirrored
-        if xs_start[0] + xs_start[-1] == 0 and xs_end[0] + xs_end[-1] == 0:
-            asphalt_l = make_mirror(asphalt, copy=True, realign=False)
-            #flip_normals(asphalt_l)
+        if units[0] == Segment.BARRIER:
+            x0 = [xs_start[1] - lb, xs_end[1] - lb]
+        else:
+            x0 = [0, 0]
+        i_end = len(units) - units[::-1].index(Segment.BARRIER) - 1
+        x1 = [xs_start[i_end] + lb, xs_end[i_end] + lb]
+        asphalt = place_unit(self.objs['NODE']['asphalt'], [0, 0], x1, scale_mode=1)
+        if x0[0] < 0 and x0[1] < 0:
+            asphalt_l = place_unit(self.objs['NODE']['asphalt'], x0, [0, 0], scale_mode=1)
             asphalt = make_mesh([asphalt, asphalt_l])
             # normals will be flipped after these operations, need to restore
             #flip_normals(asphalt)
         sidewalk = make_mesh(sidewalk)
         reset_origin(sidewalk)
+        reset_origin(asphalt)
         # make compatibility nodes to connect vanilla roads
         if compatibility:
             place_slope(sidewalk, -0.15 + 3 * EPS, dim=64)
