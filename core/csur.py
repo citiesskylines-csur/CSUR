@@ -98,7 +98,13 @@ def get_suffix(block, init_r):
     elif block.get_offset() == LANEWIDTH / 2 and block.nlanes > 1:
         offset_code = 'S'
         return offset_code
-    #elif self.get_offset() == -Carriageway.init_r:
+    elif block.get_offset() == -LANEWIDTH / 4:
+        '''
+        Specially allow for centered expressways with -1/4 unit 
+        of net offset
+        '''
+        offset_code = "U"
+        return offset_code
     #    offset_code = 'CL'
     #    return offset_code
     elif block.get_offset() > 0:
@@ -233,7 +239,12 @@ class StandardWidth:
 
 class Carriageway():
     width = Segment.widths[Segment.LANE]
-    init_r = Segment.widths[Segment.MEDIAN]
+    '''
+    NOTE: This change w.r.t. master branch is hard-coded.
+    The median unit width is 1/4 in the expressway branch,
+    therefore #1 lane should start at 2 medians.
+    '''
+    init_r = Segment.widths[Segment.MEDIAN] * 2
     
     def __init__(self, nlanes, x_left):
         self.nlanes = nlanes
@@ -418,6 +429,8 @@ class CSURFactory():
                 'ex': [Segment.SHOULDER, Segment.BARRIER],
                 # slope expressway
                 'sx': [Segment.SHOULDER, Segment.BARRIER],
+                # tunnel expressway
+                'tx': [Segment.SHOULDER, Segment.BARRIER],
                 # elevated 
                 'e': [Segment.BARRIER],
                 # bridge
@@ -431,10 +444,11 @@ class CSURFactory():
                'gp': Segment.CURB, 'gc': Segment.CURB, 'gw': Segment.CURB,
                 'b': Segment.BARRIER, 'gx': [Segment.BARRIER, Segment.HALFSHOULDER],
                 'ex': [Segment.BARRIER, Segment.HALFSHOULDER],
-                'sx': Segment.SHOULDER, # a full shoulder on the left side is needed for one-way tunnel entrances
+                'sx': [Segment.BARRIER, Segment.HALFSHOULDER], # a full shoulder on the left side is needed for one-way tunnel entrances
+                'tx': [Segment.BARRIER, Segment.HALFSHOULDER],
                 's': Segment.BARRIER, 't': Segment.BARRIER}
     
-    def get_units(mode, lane_left, *blocks, n_median=1, prepend_median=False, force_single_roadside=False):
+    def get_units(mode, lane_left, *blocks, n_median=1, prepend_median=False, force_single_roadside=True):
         roadside = CSURFactory.roadside[mode]
         units = []
         # traffic lanes
