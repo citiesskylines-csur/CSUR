@@ -25,7 +25,7 @@ class AssetMaker:
     # note: metro mode is used to visualize underground construction
     names = {'g': 'basic', 'e': 'elevated', 'b': 'bridge', 't': 'tunnel', 's': 'slope'}
     shaders = {'g': 'Road', 'e': 'RoadBridge', 'b': 'RoadBridge', 't': 'RoadBridge', 's': 'RoadBridge'}
-    suffix = {'e': 'express', 'w': 'weave', 'c': 'compact', 'p': 'parking'}
+    suffix = {'e': 'express', 'w': 'weave', 'c': 'compact', 'p': 'parking', 'x': 'expressway'}
     
     segment_presets = {}
     node_presets = {}
@@ -33,17 +33,16 @@ class AssetMaker:
     props = {}
 
     def __init__(self, dir, config_file='csur.ini',
-                 template_path='prefab/templates', output_path='output', bridge=False, tunnel=True):
+                 template_path='prefab/templates', output_path='output', tunnel=True):
         self.output_path = os.path.join(dir, output_path)
         if not os.path.exists(self.output_path):
             os.makedirs(self.output_path)
         self.template_path = os.path.join(dir, template_path)
         self.workdir = dir
-        self.bridge = bridge
         self.tunnel = tunnel
         self.assetdata = {}
         self.assets_made = []
-        self.modeler = ModelerLodded(os.path.join(dir, config_file), bridge, tunnel, optimize=True)
+        self.modeler = ModelerLodded(os.path.join(dir, config_file), tunnel, optimize=True)
         with open(os.path.join(self.template_path, 'segment_presets.json'), 'r') as f:
             self.segment_presets = json.load(f)
         with open(os.path.join(self.template_path, 'node_presets.json'), 'r') as f:
@@ -167,6 +166,8 @@ class AssetMaker:
         # do not add solid lines in elevated mode
         # note that only road with >1 lanes each side has solid lines
         # the BikeBan flag is used for adding noise barriers
+        '''
+        No sound barriers or solidlines for expressways
         if mode[0] in 'st' or (mode[0] == 'g' and asset.has_trafficlight()):
             lines = self.modeler.make_solidlines(seg, both=(mode[0] != 'g'))
             if lines:
@@ -176,6 +177,7 @@ class AssetMaker:
         if mode[0] == 'e':
             sb = self.modeler.make_soundbarrier(seg)
             self.__add_segment('%s_soundbarrier' % name, sb, mode=mode[0], preset='bikepolicy', texmode='soundbarrier')
+        '''
         # add fence to undivided ground road >= 2L
         if AssetMaker.FENCE and mode == 'g' and asset.is_twoway() \
              and asset.is_undivided() and asset.asym() == [0,0] \
@@ -220,30 +222,12 @@ class AssetMaker:
     def __create_node(self, asset, mode):
         seg = asset.get_model(mode)
         name = self.assetdata['name'] + '_' + mode + '_node'
-        sidewalk, sidewalk2, asphalt, junction = self.modeler.make_node(seg, mode[0])
+        sidewalk, asphalt = self.modeler.make_node(seg, mode[0])
         sidewalk_comp, asphalt_comp = self.modeler.make_node(seg, mode[0], compatibility=True)
-        if sidewalk2:
-            self.__add_node('%s_sidewalk_crossing' % name, sidewalk, preset='trafficlight_nt', texmode='node')
-            self.__add_node('%s_sidewalk_nocrossing' % name, sidewalk2, preset='notrafficlight_nt', texmode='node')
-        else:
-            self.__add_node('%s_sidewalk_crossing' % name, sidewalk, preset='default', texmode='node')
-        # asphalt and junction always use node texture
-        if min(asset.get_dim()) > 6 * SW.LANE:
-            self.__add_node('%s_asphalt' % name, asphalt, preset='default', texmode='node')
-            self.__add_node('%s_asphalt_comp' % name, asphalt_comp, preset='transition', texmode='node')
-        else:
-            self.__add_node('%s_asphalt_crossing' % name, asphalt, preset='trafficlight_nt', texmode='nodesmall')
-            self.__add_node('%s_asphalt_crossing_comp' % name, asphalt_comp, preset='trafficlight_t', texmode='nodesmall')
-
-            self.__add_node('%s_asphalt' % name, 
-                            os.path.join(self.output_path, '%s_asphalt_crossing' % name), 
-                            preset='notrafficlight_nt', texmode='node')
-            self.__add_node('%s_asphalt_comp' % name, 
-                            os.path.join(self.output_path, '%s_asphalt_crossing_comp' % name), 
-                            preset='notrafficlight_t', texmode='node')
-        if junction:
-            self.__add_node('%s_junction' % name, junction, preset='trafficlight', texmode='node')
-        self.__add_node('%s_sidewalk_comp' % name, sidewalk_comp, preset='transition', texmode='node')
+        self.__add_node('%s_sidewalk' % name, sidewalk, mode=mode[0], preset='default', texmode=AssetMaker.names[mode[0]])
+        self.__add_node('%s_sidewalk_comp' % name, sidewalk_comp, mode=mode[0], preset='transition', texmode=AssetMaker.names[mode[0]])
+        self.__add_node('%s_asphalt' % name, asphalt, mode=mode[0], preset='default', texmode='node')
+        self.__add_node('%s_asphalt_comp' % name, asphalt_comp, mode=mode[0], preset='transition', texmode='node')
         
     
 
@@ -606,7 +590,7 @@ class AssetMaker:
             # change min corner offset, increase the size of intersections
             # for roads wider than 6L
             # only apply to base modules
-            if mode[0] == 'g' and (asset.roadtype == 'b' or uturn):
+            if mode[0] != 't' and (asset.roadtype == 'b' or uturn):
                 #if min(asset.get_dim()) > 6 * SW.LANE:
                 #    scale = 1 + (min(asset.get_dim()) - 3 * SW.LANE) / (SW.LANE * 20)
                 #else:
@@ -808,7 +792,7 @@ class AssetMaker:
                 self.__create_dcnode(asset, mode, asym_mode='invert')   
                 self.__create_dcnode(asset, mode, asym_mode='restore')
     
-    def make(self, asset, weave=False):
+    def make(self, asset, weave=False, express=True):
         self.__initialize_assetinfo(asset)
         modes = ['g', 'e']
         if self.tunnel:
@@ -816,17 +800,18 @@ class AssetMaker:
         if weave:
             modes = [x + 'w' for x in modes]
         if asset.roadtype == 'b':
-            if self.bridge:
-                modes.append('b')
             if self.tunnel:
                 modes.append('s')
+        if express:
+            modes = [x + 'x' for x in modes]
         # build segments
         for mode in modes:
             self.__create_segment(asset, mode)
         # build node. centered roads only
         if asset.roadtype == 'b' and asset.center()[0] == 0:
-            # first mode is ground
-            self.__create_all_nodes(asset, modes[0])
+            for m in modes:
+                if m[0] != "s":
+                    self.__create_all_nodes(asset, m)
         # only allow bus stops on ground normal
         if asset.has_busstop() and modes[0] in ['g', 'gc']: 
             self.__create_stop(asset, modes[0], 'single')
