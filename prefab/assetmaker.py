@@ -626,19 +626,25 @@ class AssetMaker:
                 info["m_enableBendingNodes"] = "false"
                 info["m_clipSegmentEnds"] = "false"
                 info["m_minCornerOffset"] = "0"
+                info["m_highwayRules"] = "true"
             else:
                 halfwidth = max(seg.x_start)
+                info["m_highwayRules"] = "true"
                 if seg.start[-1] == Segment.SIDEWALK:
                     halfwidth -= 1.25
                 if mode[0] != 'g':
                     halfwidth += 1.25
                 if mode[0] == 's':
                     halfwidth += 4.25
+            # elevated must be enable bending nodes
+            if mode[0] == 'e':
+                info["m_enableBendingNodes"] = "true" 
             # slope mode must flatten terrain
             if mode[0] == 's':
                 info["m_flattenTerrain"] = "true"
             else:
-                info["m_flattenTerrain"] = "false"         
+                info["m_flattenTerrain"] = "false"
+            
         info["m_halfWidth"] = "%.8f" % halfwidth
         if asset.roadtype == 'b':
             info["m_enableBendingSegments"] = "true"
