@@ -632,6 +632,8 @@ class AssetMaker:
                     halfwidth -= 1.25
                 if mode[0] != 'g':
                     halfwidth += 1.25
+                if mode[0] == 's':
+                    halfwidth += 4.25
             # slope mode must flatten terrain
             if mode[0] == 's':
                 info["m_flattenTerrain"] = "true"
