@@ -114,8 +114,10 @@ def decode(name, twoway_mask=False):
                 xleft_cur = -nl_cur / 2 * LANEWIDTH
             elif location == 'S':
                 xleft_cur = (1 - nl_cur) / 2 * LANEWIDTH
+            elif location == 'U':
+                xleft_cur = -(nl_cur / 2 + 0.25) * LANEWIDTH
             else:
-                raise NotImplementedError("Offset location not understood! Must be L, C, R, or S")
+                raise NotImplementedError("Offset location not understood! The offset suffix must be either of four letters in 'CSUR'.")
         else:
             #print('add')
             blocks.append(None if twoway and twoway_mask else (xleft_cur, nl_cur))
