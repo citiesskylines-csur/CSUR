@@ -1,5 +1,11 @@
 import math
-from graphics import cairo
+import sys
+if sys.version_info.minor == 7:
+    from graphics import cairo_p37 as cairo
+elif sys.version_info.minor == 9:
+    from graphics import cairo_p39 as cairo
+else:
+    raise ImportError("Only Python 3.7 or 3.9 are supported for thumbnail generation!")
 
 # arrows should point right
 ARROW_PATH = [(0, 0), (3.68, -0.81), (7.21, -2.21), (7.28, -2.16), (5.97, 0), 
