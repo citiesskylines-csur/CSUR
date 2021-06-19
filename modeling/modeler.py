@@ -901,11 +901,13 @@ class Modeler:
         slope will always forbid the invert flag (see segment presets).
         '''
         if mode[0] == 's':
-            if isinstance(seg, csur.TwoWay):
+            if isinstance(seg, csur.TwoWay) or isinstance(seg, csur.Segment):
                 struc.rotation_euler[2] = 3.1415926536
                 transform_apply(struc, rotation=True)
             # upward and downward slopes use the same model
             if isinstance(seg, csur.TwoWay) and str(seg.left) == str(seg.right):
+                return lanes, struc
+            elif isinstance(seg, csur.Segment):
                 return lanes, struc
             # upward and downward slopes use different models
             else:
@@ -913,6 +915,9 @@ class Modeler:
                 if isinstance(seg, csur.TwoWay):
                     struc_up = make_mirror(struc, axis=0, copy=True, realign=False)
                     struc_down = struc
+                elif isinstance(seg, csur.Segment):
+                    struc_up = make_mirror(struc, axis=0, copy=True, realign=False)
+                    struc_down = make_mirror(struc, axis=0, copy=True, realign=False)
                 else:
                     struc_down = make_mirror(struc, axis=0, copy=True, realign=False)
                     struc_up = struc
