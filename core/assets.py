@@ -93,7 +93,7 @@ class Asset():
         return self.roadtype == 'b' and self.center() == [0,0]
 
     def reverse(self):
-        return Asset(self.xleft[1], self.nlanes[1], self.xleft[0], self.nlanes[0], self.medians)
+        return Asset(self.xleft[1], self.nlanes[1], self.xleft[0], self.nlanes[0], self.medians[::-1])
 
     def always_undivided(self):
         return self.xleft[0] == 0 and self.xleft[1] == 0
